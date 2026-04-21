@@ -3,38 +3,45 @@ package com.example.teste
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.teste.ui.theme.TesteTheme
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.*
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
+
+
+data class Medicamento(
+    val nome: String,
+    val dose: String,
+    val horario: String,
+    val turno: String
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             TesteTheme {
-                var telaAtual by remember { mutableStateOf("home") }
-                if (telaAtual == "home") {
-                    HomeScreen(onNavigateToRemedios = { telaAtual = "remedios" })
-                } else {
-                   RemediosScreen(onBack = { telaAtual = "home" })
-                }
+                MainScreen()
             }
         }
     }
@@ -42,105 +49,91 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onNavigateToRemedios: () -> Unit) {
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet (
-                drawerContainerColor = Color(0xFFE3F2FD),
+fun MainScreen() {
+    // Dados fictícios
+    val listaRemedios = listOf(
+        Medicamento("Escitalopram", "1 comprimido (5mg)", "08:00", "Manhã"),
+        Medicamento("Ibuprofeno", "20 gotas", "09:30", "Manhã"),
+        Medicamento("Dipirona", "1 comprimido", "13:00", "Tarde"),
+        Medicamento("Melatonina", "1 comprimido", "21:00", "Noite")
+    )
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("MEUS REMÉDIOS", fontWeight = FontWeight.Black) },
+                actions = {
+                    Icon(
+                        Icons.Default.AccountCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp).padding(end = 8.dp),
+                        tint = Color.Gray
+                    )
+                }
+            )
+        },
+        bottomBar = {
+            NavigationBar(
+                containerColor = Color(0xFFF0F0F0),
+                // 1. Aumentamos a altura total da barra aqui
+                modifier = Modifier.height(100.dp)
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Menu", modifier = Modifier.padding(16.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                HorizontalDivider()
-                NavigationDrawerItem(
-                    label = {Text("Área do médico", color = Color.Black)},
+
+                NavigationBarItem(
+                    selected = true,
+                    onClick = {},
+                    icon = {
+                        Image(painterResource(R.drawable.icone_remedios),
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp)
+                        )
+                    },
+                    label = {
+                        Text("Início", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    },
+                    alwaysShowLabel = true
+                )
+
+
+                NavigationBarItem(
                     selected = false,
-                    onClick = { scope.launch { drawerState.close() } }
+                    onClick = {},
+                    icon = { Image(painterResource(R.drawable.icone_consulta), contentDescription = null, modifier = Modifier.size(80.dp)) },
+                    label = { Text("Consultas", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                    alwaysShowLabel = true
+                )
+
+                NavigationBarItem(
+                    selected = false,
+                    onClick = {},
+                    icon = { Image(painterResource(R.drawable.icone_pressao), contentDescription = null, modifier = Modifier.size(80.dp)) },
+                    label = { Text("Pressão", fontSize = 16.sp, fontWeight = FontWeight.Bold,modifier = Modifier.offset(y = (-12).dp) ) },
+                    alwaysShowLabel = true
                 )
             }
         }
-    ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Cuidado Diário", color = Color.White, fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1976D2))
-                )
-            },
-            containerColor = Color(0xFFF5F5F5)
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Progresso da Semana", fontSize = 20.sp, fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(12.dp))
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(Color.White)
+                .padding(horizontal = 16.dp)
+        ) {
+            val turnos = listOf("Manhã", "Tarde", "Noite")
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    val dias = listOf("D", "S", "T", "Q", "Q", "S", "S")
-                    dias.forEach { dia ->
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = dia, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Color.LightGray, shape = CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {}
-                        }
+            turnos.forEach { turno ->
+                val remediosDoTurno = listaRemedios.filter { it.turno == turno }
+
+                if (remediosDoTurno.isNotEmpty()) {
+                    item {
+                        TurnoHeader(turno)
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = { /* Registrar medicação */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(65.dp), // Aumentei levemente para 65dp para dar mais respiro
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF56E1DE))
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.icone_registro), // Use a sua imagem aqui
-                            contentDescription = null,
-                            modifier = Modifier.size(128.dp) // Tamanho menor para caber na linha
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp)) // Espaço entre a imagem e o texto
-
-                        Text(
-                            text = "REGISTRAR REMÉDIO",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    items(remediosDoTurno) { remedio ->
+                        CardMedicamento(remedio)
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    BigButton("Meus Remédios", Color(0xFFEFC845), idImagem = R.drawable.icone_remedios, click = onNavigateToRemedios)
-                    BigButton("consultas", Color(0xFF3FE16A), idImagem = R.drawable.icone_consulta,  click = {/* tela que manda pra consulta*/}) // Ajustei para um verde mais suave
-                    BigButton("Registrar pressão", Color(0xFFEF4736), idImagem = R.drawable.icone_pressao, click = {/* tela que manda pra registrar pressão*/}) // Ajustei para um vermelho mais suave
                 }
             }
         }
@@ -148,38 +141,97 @@ fun HomeScreen(onNavigateToRemedios: () -> Unit) {
 }
 
 @Composable
-fun BigButton(label: String, color: Color, idImagem: Int, click: () -> Unit) {
-    Button(
-        onClick = click,
+fun TurnoHeader(titulo: String) {
+    val corFundo = Color(0xFF9E9E9E)
+    val emoji = when (titulo) {
+        "Manhã" -> "🌅"
+        "Tarde" -> "☀️"
+        else -> "🌙"
+    }
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp), // Aumentado para comportar o ícone de 140dp
-        shape = MaterialTheme.shapes.medium,
-        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.Black),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
-        contentPadding = PaddingValues(start = 0.dp, end = 16.dp)
+            .padding(vertical = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = corFundo),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically, // Centraliza verticalmente ícone e texto
-            horizontalArrangement = Arrangement.Start // Começa da esquerda
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
-                painter = painterResource(id = idImagem),
-                contentDescription = label,
-                modifier = Modifier
-                    .size(180.dp) // Ícone bem grande como solicitado
-                    .offset(x = (-10).dp)
-            )
-
+            Text(text = emoji, fontSize = 40.sp)
+            Spacer(modifier = Modifier.width(16.dp))
             Text(
-                text = label.uppercase(),
-                modifier = Modifier.weight(1f), // Faz o texto ocupar o restante do espaço à direita
-                fontSize = 24.sp, // Aumentei um pouco mais para equilibrar com o ícone gigante
+                text = titulo.uppercase(),
+                fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
-                lineHeight = 28.sp,
-                textAlign = TextAlign.Center // Centraliza o texto dentro do espaço que sobrou
+                color = Color.Black,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f)
             )
+        }
+    }
+}
+
+@Composable
+fun CardMedicamento(remedio: Medicamento) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
+        elevation = CardDefaults.cardElevation(4.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = remedio.nome,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4A148C)
+                    )
+                    Text(
+                        text = remedio.dose,
+                        fontSize = 16.sp,
+                        color = Color.DarkGray
+                    )
+                }
+
+                Surface(
+                    color = Color(0xFFBDBDBD),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = remedio.horario,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {  },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE1BEE7)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Image(painterResource(R.drawable.icone_registro), contentDescription = null, modifier = Modifier.size(80.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "JÁ TOMEI",
+                    color = Color(0xFF4A148C),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp
+                )
+            }
         }
     }
 }
