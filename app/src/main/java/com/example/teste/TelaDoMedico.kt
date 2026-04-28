@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +22,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.Normalizer
+
+// -------------------------------------------------------
+// Normaliza texto: remove acentos e converte para minúsculo
+// Permite busca por aproximação sem acento e case-insensitive
+// -------------------------------------------------------
+fun normalizarTexto(texto: String): String {
+    val semAcento = Normalizer.normalize(texto, Normalizer.Form.NFD)
+        .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+    return semAcento.lowercase()
+}
 
 // -------------------------------------------------------
 // Tela do Médico
@@ -36,6 +48,22 @@ fun TelaDoMedico(
     val salvando by vm.salvando.collectAsState()
     val erro by vm.erro.collectAsState()
 
+    var textoBusca by remember { mutableStateOf("") }
+
+    // Filtra por aproximação: ignora acentos e maiúsculas
+    val medicamentosFiltrados = remember(medicamentos, textoBusca) {
+        if (textoBusca.isBlank()) {
+            medicamentos
+        } else {
+            val busca = normalizarTexto(textoBusca)
+            medicamentos.filter { ui ->
+                normalizarTexto(ui.medicamento.nome).contains(busca) ||
+                        normalizarTexto(ui.medicamento.forma).contains(busca) ||
+                        normalizarTexto(ui.medicamento.concentracao).contains(busca)
+            }
+        }
+    }
+
     val totalSelecionados = medicamentos.count { it.selecionado }
 
     LaunchedEffect(Unit) {
@@ -44,26 +72,48 @@ fun TelaDoMedico(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("🩺 Área do Médico", fontWeight = FontWeight.Black, fontSize = 20.sp)
-                        if (totalSelecionados > 0) {
-                            Text(
-                                "$totalSelecionados selecionado(s)",
-                                fontSize = 13.sp,
-                                color = Color(0xFF4A148C)
+            // Usamos Surface + Column manualmente para ter controle total da cor do texto
+            Surface(
+                color = Color(0xFFF3E5F5),
+                tonalElevation = 0.dp,
+                shadowElevation = 4.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 4.dp, vertical = 8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        IconButton(onClick = onVoltar) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Voltar",
+                                tint = Color(0xFF1A1A1A)   // ← ícone escuro
                             )
                         }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "🩺 Área do Médico",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 20.sp,
+                                color = Color(0xFF1A1A1A)   // ← título escuro
+                            )
+                            if (totalSelecionados > 0) {
+                                Text(
+                                    "$totalSelecionados selecionado(s)",
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF4A148C)
+                                )
+                            }
+                        }
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onVoltar) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF3E5F5))
-            )
+                }
+            }
         },
         bottomBar = {
             Column(
@@ -172,8 +222,49 @@ fun TelaDoMedico(
                         .background(Color(0xFFFAFAFA))
                         .padding(horizontal = 16.dp)
                 ) {
+                    // Campo de busca
                     item {
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = textoBusca,
+                            onValueChange = { textoBusca = it },
+                            placeholder = {
+                                Text(
+                                    "Buscar medicamento...",
+                                    color = Color(0xFF757575)
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4A148C)
+                                )
+                            },
+                            trailingIcon = {
+                                if (textoBusca.isNotEmpty()) {
+                                    TextButton(onClick = { textoBusca = "" }) {
+                                        Text("✕", color = Color.Gray)
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF4A148C),
+                                unfocusedBorderColor = Color(0xFFCCCCCC),
+                                focusedLabelColor = Color(0xFF4A148C),
+                                cursorColor = Color(0xFF4A148C),
+                                focusedTextColor = Color(0xFF1A1A1A),
+                                unfocusedTextColor = Color(0xFF1A1A1A)
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
+
+                    // Instrução
+                    item {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
                             shape = RoundedCornerShape(10.dp),
@@ -190,14 +281,32 @@ fun TelaDoMedico(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    items(medicamentos, key = { it.medicamento.id }) { uiState ->
-                        CardMedicamentoSelecao(
-                            uiState = uiState,
-                            onToggle = { vm.alternarSelecao(uiState.medicamento.id) },
-                            onHorarioChange = { vm.atualizarHorario(uiState.medicamento.id, it) },
-                            onTurnoChange = { vm.atualizarTurno(uiState.medicamento.id, it) }
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
+                    // Resultado vazio da busca
+                    if (medicamentosFiltrados.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 40.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Nenhum resultado para \"$textoBusca\"",
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        items(medicamentosFiltrados, key = { it.medicamento.id }) { uiState ->
+                            CardMedicamentoSelecao(
+                                uiState = uiState,
+                                onToggle = { vm.alternarSelecao(uiState.medicamento.id) },
+                                onHorarioChange = { vm.atualizarHorario(uiState.medicamento.id, it) },
+                                onTurnoChange = { vm.atualizarTurno(uiState.medicamento.id, it) }
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
                     }
 
                     item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -235,14 +344,12 @@ fun CardMedicamentoSelecao(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
 
-            // --- Linha superior: checkbox + nome + forma ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onToggle() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Checkbox visual
                 Box(
                     modifier = Modifier
                         .size(28.dp)
@@ -267,43 +374,52 @@ fun CardMedicamentoSelecao(
                         text = med.nome,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (selecionado) Color(0xFF4A148C) else Color.Black
+                        color = if (selecionado) Color(0xFF4A148C) else Color(0xFF1A1A1A)
                     )
                     Text(
                         text = "${med.concentracao}  •  ${med.forma}",
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = Color(0xFF555555)
                     )
                 }
             }
 
-            // --- Campos de horário e turno, visíveis só quando selecionado ---
             if (selecionado) {
                 Spacer(modifier = Modifier.height(14.dp))
                 HorizontalDivider(color = Color(0xFFE1BEE7))
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Campo de horário
+                // Campo de horário com fontes pretas
                 OutlinedTextField(
                     value = uiState.horario,
                     onValueChange = { onHorarioChange(it) },
-                    label = { Text("Horário (ex: 08:00)", fontSize = 13.sp) },
+                    label = {
+                        Text(
+                            "Horário (ex: 08:00)",
+                            fontSize = 13.sp,
+                            color = Color(0xFF1A1A1A)   // ← label preta
+                        )
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF4A148C),
-                        focusedLabelColor = Color(0xFF4A148C)
+                        unfocusedBorderColor = Color(0xFFBBBBBB),
+                        focusedLabelColor = Color(0xFF4A148C),
+                        unfocusedLabelColor = Color(0xFF1A1A1A),  // ← label sem foco preta
+                        focusedTextColor = Color(0xFF1A1A1A),     // ← texto digitado preto
+                        unfocusedTextColor = Color(0xFF1A1A1A),   // ← texto sem foco preto
+                        cursorColor = Color(0xFF4A148C)
                     ),
                     shape = RoundedCornerShape(10.dp)
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Seletor de turno
                 Text(
                     text = "Turno",
                     fontSize = 13.sp,
-                    color = Color.Gray,
+                    color = Color(0xFF1A1A1A),
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(6.dp))
