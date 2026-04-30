@@ -6,17 +6,132 @@ import androidx.lifecycle.viewModelScope
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
+// -------------------------------------------------------
+// Helpers de data
+// -------------------------------------------------------
+
+// Retorna meia-noite do dia informado (zera hora/min/seg/ms)
+fun meianoite(cal: Calendar): Long {
+    return Calendar.getInstance().apply {
+        set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+}
+
+// Meia-noite de hoje
+fun hoje(): Long {
+    return meianoite(Calendar.getInstance())
+}
+
+// Meia-noite de amanhã (primeiro dia do tratamento)
+fun amanha(): Long {
+    val cal = Calendar.getInstance()
+    cal.add(Calendar.DAY_OF_MONTH, 1)
+    return meianoite(cal)
+}
+
+// Retorna lista de timestamps (meia-noite) para cada dia do tratamento
+fun diasDeTratamento(dataInicio: Long, diasTratamento: Int): List<Long> {
+    val lista = mutableListOf<Long>()
+    val cal = Calendar.getInstance()
+    cal.timeInMillis = dataInicio
+    repeat(diasTratamento) {
+        lista.add(meianoite(cal))
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+    }
+    return lista
+}
+
+// -------------------------------------------------------
+// ViewModel
+// -------------------------------------------------------
 class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val dao = AppDatabase.getInstance(app).medicamentoDao()
+    private val medDao = AppDatabase.getInstance(app).medicamentoDao()
+    private val horarioDao = AppDatabase.getInstance(app).horarioDao()
+    private val doseDao = AppDatabase.getInstance(app).doseDao()
 
-    // Remédios prescritos salvos localmente (tela do paciente)
+    // ---------------------------------------------------
+    // Estado da tela do paciente
+    // ---------------------------------------------------
     val medicamentosPrescritos: StateFlow<List<MedicamentoPrescrito>> =
-        dao.observarTodos()
+        medDao.observarTodos()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Horários de todos os medicamentos prescritos
+    private val _horariosPrescritos = MutableStateFlow<List<HorarioPrescrito>>(emptyList())
+    val horariosPrescritos: StateFlow<List<HorarioPrescrito>> = _horariosPrescritos
+
+    // Doses já tomadas hoje
+    private val _dosesTomadas = MutableStateFlow<Set<Int>>(emptySet()) // ids de HorarioPrescrito tomados hoje
+    val dosesTomadas: StateFlow<Set<Int>> = _dosesTomadas
+
+    init {
+        // Carrega horários sempre que a lista de medicamentos mudar
+        viewModelScope.launch {
+            medicamentosPrescritos.collect { lista ->
+                if (lista.isNotEmpty()) {
+                    val ids = lista.map { it.id }
+                    _horariosPrescritos.value = horarioDao.buscarPorMedicamentos(ids)
+                } else {
+                    _horariosPrescritos.value = emptyList()
+                }
+            }
+        }
+        // Carrega doses tomadas hoje
+        carregarDosesHoje()
+    }
+
+    fun carregarDosesHoje() {
+        viewModelScope.launch {
+            val doses = doseDao.buscarPorDia(hoje())
+            _dosesTomadas.value = doses.map { it.horarioId }.toSet()
+        }
+    }
+
+    // Marca ou desmarca uma dose como tomada
+    fun toggleDose(horarioId: Int) {
+        viewModelScope.launch {
+            val hoje = hoje()
+            val existente = doseDao.buscar(horarioId, hoje)
+            if (existente != null) {
+                doseDao.remover(existente)
+                _dosesTomadas.update { it - horarioId }
+            } else {
+                doseDao.inserir(DoseTomada(horarioId, hoje))
+                _dosesTomadas.update { it + horarioId }
+            }
+        }
+    }
+
+    // Retorna o próximo horário ativo para um medicamento
+    // (o primeiro não tomado hoje, em ordem de horário)
+    fun proximoHorarioAtivo(
+        medicamento: MedicamentoPrescrito,
+        horarios: List<HorarioPrescrito>,
+        dosesTomadas: Set<Int>
+    ): HorarioPrescrito? {
+        val agora = Calendar.getInstance()
+        val hojeTs = hoje()
+
+        // Verifica se ainda está dentro do período de tratamento
+        val diasPassados = ((hojeTs - medicamento.dataInicio) / (1000 * 60 * 60 * 24)).toInt()
+        if (diasPassados < 0 || diasPassados >= medicamento.diasTratamento) return null
+
+        // Ordena horários pelo horário do dia
+        val ordenados = horarios
+            .filter { it.medicamentoId == medicamento.id }
+            .sortedBy { it.horario }
+
+        // Retorna o primeiro não tomado hoje
+        return ordenados.firstOrNull { it.id !in dosesTomadas }
+    }
+
+    // ---------------------------------------------------
     // Estado da tela do médico
+    // ---------------------------------------------------
     private val _medicamentosSupabase = MutableStateFlow<List<MedicamentoUiState>>(emptyList())
     val medicamentosSupabase: StateFlow<List<MedicamentoUiState>> = _medicamentosSupabase
 
@@ -29,31 +144,32 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
     private val _salvando = MutableStateFlow(false)
     val salvando: StateFlow<Boolean> = _salvando
 
-    // -------------------------------------------------------
-    // Busca medicamentos do Supabase
-    // Ajuste "medicamentos" para o nome real da sua tabela
-    // -------------------------------------------------------
     fun carregarMedicamentosSupabase() {
         viewModelScope.launch {
             _carregando.value = true
             _erro.value = null
             try {
                 val resultado = SupabaseClient.client
-                    .postgrest["Medicamentos"]
+                    .postgrest["Medicamentos"]   // <- nome exato da sua tabela
                     .select()
                     .decodeList<MedicamentoSupabase>()
 
-                // Marca como selecionados os que já estão prescritos,
-                // e restaura o horário/turno que o médico tinha definido antes
-                val prescritosMap = dao.observarTodos().first().associateBy { it.id }
+                // Restaura seleção prévia se existir
+                val prescritosMap = medDao.observarTodos().first().associateBy { it.id }
+                val todosHorarios = horarioDao.buscarTodos()
 
                 _medicamentosSupabase.value = resultado.map { med ->
                     val prescrito = prescritosMap[med.id]
+                    val horariosAtuais = todosHorarios
+                        .filter { it.medicamentoId == med.id }
+                        .map { HorarioUiState(it.horario, it.turno) }
+
                     MedicamentoUiState(
                         medicamento = med,
                         selecionado = prescrito != null,
-                        horario = prescrito?.horario ?: "08:00",
-                        turno = prescrito?.turno ?: "Manhã"
+                        horarios = if (horariosAtuais.isNotEmpty()) horariosAtuais
+                        else listOf(HorarioUiState()),
+                        diasTratamento = prescrito?.diasTratamento ?: 7
                     )
                 }
             } catch (e: Exception) {
@@ -64,45 +180,107 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    // Alterna seleção de um medicamento
     fun alternarSelecao(id: Int) {
         _medicamentosSupabase.update { lista ->
             lista.map { if (it.medicamento.id == id) it.copy(selecionado = !it.selecionado) else it }
         }
     }
 
-    // Atualiza o horário de um medicamento específico
-    fun atualizarHorario(id: Int, horario: String) {
+    fun adicionarHorario(id: Int) {
         _medicamentosSupabase.update { lista ->
-            lista.map { if (it.medicamento.id == id) it.copy(horario = horario) else it }
+            lista.map {
+                if (it.medicamento.id == id)
+                    it.copy(horarios = it.horarios + HorarioUiState())
+                else it
+            }
         }
     }
 
-    // Atualiza o turno de um medicamento específico
-    fun atualizarTurno(id: Int, turno: String) {
+    fun removerHorario(id: Int, index: Int) {
         _medicamentosSupabase.update { lista ->
-            lista.map { if (it.medicamento.id == id) it.copy(turno = turno) else it }
+            lista.map {
+                if (it.medicamento.id == id && it.horarios.size > 1)
+                    it.copy(horarios = it.horarios.toMutableList().also { h -> h.removeAt(index) })
+                else it
+            }
         }
     }
 
-    // Salva a prescrição localmente e volta para a tela do paciente
+    fun atualizarHorario(id: Int, index: Int, horario: String) {
+        _medicamentosSupabase.update { lista ->
+            lista.map {
+                if (it.medicamento.id == id) {
+                    val novos = it.horarios.toMutableList()
+                    novos[index] = novos[index].copy(horario = horario)
+                    it.copy(horarios = novos)
+                } else it
+            }
+        }
+    }
+
+    fun atualizarTurno(id: Int, index: Int, turno: String) {
+        _medicamentosSupabase.update { lista ->
+            lista.map {
+                if (it.medicamento.id == id) {
+                    val novos = it.horarios.toMutableList()
+                    novos[index] = novos[index].copy(turno = turno)
+                    it.copy(horarios = novos)
+                } else it
+            }
+        }
+    }
+
+    fun atualizarDias(id: Int, dias: Int) {
+        _medicamentosSupabase.update { lista ->
+            lista.map {
+                if (it.medicamento.id == id) it.copy(diasTratamento = dias) else it
+            }
+        }
+    }
+
+    // Salva prescrição — primeiro dia é amanhã
     fun salvarPrescricao(onConcluido: () -> Unit) {
         viewModelScope.launch {
             _salvando.value = true
             try {
-                val selecionados = _medicamentosSupabase.value
-                    .filter { it.selecionado }
-                    .map { ui ->
+                val selecionados = _medicamentosSupabase.value.filter { it.selecionado }
+
+                // Limpa tudo e reconstrói
+                medDao.limparTodos()
+                horarioDao.limparTodos()
+                doseDao.limparTodos()
+
+                val inicioTratamento = amanha()
+
+                selecionados.forEach { ui ->
+                    // Salva o medicamento
+                    medDao.inserir(
                         MedicamentoPrescrito(
                             id = ui.medicamento.id,
                             nome = ui.medicamento.nome,
                             concentracao = ui.medicamento.concentracao,
                             forma = ui.medicamento.forma,
-                            horario = ui.horario,
-                            turno = ui.turno
+                            diasTratamento = ui.diasTratamento,
+                            dataInicio = inicioTratamento
+                        )
+                    )
+                    // Salva cada horário
+                    ui.horarios.forEach { h ->
+                        horarioDao.inserir(
+                            HorarioPrescrito(
+                                medicamentoId = ui.medicamento.id,
+                                horario = h.horario,
+                                turno = h.turno
+                            )
                         )
                     }
-                dao.substituirTodos(selecionados)
+                }
+
+                // Recarrega horários na tela do paciente
+                val ids = selecionados.map { it.medicamento.id }
+                _horariosPrescritos.value = horarioDao.buscarPorMedicamentos(ids)
+                _dosesTomadas.value = emptySet()
+
                 onConcluido()
             } finally {
                 _salvando.value = false

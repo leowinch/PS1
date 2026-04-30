@@ -7,23 +7,31 @@ import kotlinx.serialization.Serializable
 
 // -------------------------------------------------------
 // Modelo do Supabase — espelha exatamente sua tabela
-// Colunas reais: nome, concentração, forma
 // -------------------------------------------------------
 @Serializable
 data class MedicamentoSupabase(
     val id: Int = 0,
     val nome: String = "",
-
-    @SerialName("concentração")   // ajuste para o nome exato da coluna no Supabase
+    @SerialName("concentracao")
     val concentracao: String = "",
-
-    val forma: String = ""        // "Comprimido", "Cápsula", "Solução oral", etc.
+    val forma: String = ""
 )
 
 // -------------------------------------------------------
-// Entidade Room — salva localmente a prescrição do médico
-// Horário e turno são definidos pelo médico no app,
-// não vêm do banco de dados
+// Um horário individual de um medicamento prescrito
+// Ex: Amoxicilina 08:00 Manhã, Amoxicilina 20:00 Noite
+// -------------------------------------------------------
+@Entity(tableName = "horarios_prescritos")
+data class HorarioPrescrito(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val medicamentoId: Int,     // referência ao MedicamentoPrescrito
+    val horario: String,        // "08:00"
+    val turno: String           // "Manhã", "Tarde", "Noite"
+)
+
+// -------------------------------------------------------
+// Medicamento prescrito — agora com dias de tratamento
+// Os horários ficam em HorarioPrescrito (relação 1-N)
 // -------------------------------------------------------
 @Entity(tableName = "medicamentos_prescritos")
 data class MedicamentoPrescrito(
@@ -31,17 +39,51 @@ data class MedicamentoPrescrito(
     val nome: String,
     val concentracao: String,
     val forma: String,
-    val horario: String,   // definido pelo médico: ex: "08:00"
-    val turno: String      // definido pelo médico: "Manhã", "Tarde" ou "Noite"
+    val diasTratamento: Int,        // quantos dias o paciente vai tomar
+    val dataInicio: Long            // timestamp do dia seguinte à prescrição (meia-noite)
 )
 
 // -------------------------------------------------------
-// Estado de UI — usado na tela do médico
-// Combina o dado do Supabase + horário/turno escolhidos
+// Registro de dose tomada — persiste o "Já tomei"
+// -------------------------------------------------------
+@Entity(tableName = "doses_tomadas", primaryKeys = ["horarioId", "dataTimestamp"])
+data class DoseTomada(
+    val horarioId: Int,         // qual HorarioPrescrito foi tomado
+    val dataTimestamp: Long     // meia-noite do dia em que foi tomado
+)
+
+// -------------------------------------------------------
+// Estado de UI de um horário — usado na tela do médico
+// -------------------------------------------------------
+data class HorarioUiState(
+    val horario: String = "08:00",
+    val turno: String = "Manhã"
+)
+
+// -------------------------------------------------------
+// Estado de UI de um medicamento na tela do médico
 // -------------------------------------------------------
 data class MedicamentoUiState(
     val medicamento: MedicamentoSupabase,
     val selecionado: Boolean = false,
-    val horario: String = "08:00",   // valor padrão editável pelo médico
-    val turno: String = "Manhã"      // valor padrão editável pelo médico
+    val horarios: List<HorarioUiState> = listOf(HorarioUiState()),
+    val diasTratamento: Int = 7
+)
+
+// -------------------------------------------------------
+// Dados completos para exibir na tela do paciente
+// -------------------------------------------------------
+data class MedicamentoComHorarios(
+    val prescrito: MedicamentoPrescrito,
+    val horarios: List<HorarioPrescrito>
+)
+
+// -------------------------------------------------------
+// Estado de um horário na tela do paciente
+// Indica qual horário mostrar agora (o próximo pendente)
+// -------------------------------------------------------
+data class HorarioAtivo(
+    val horarioPrescrito: HorarioPrescrito,
+    val jaToмado: Boolean,
+    val dentroDoTratamento: Boolean  // false se já passou os dias
 )

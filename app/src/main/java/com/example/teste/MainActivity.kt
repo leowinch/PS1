@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
+    // Estado de navegação centralizado
     var telaAtual by remember { mutableStateOf("paciente") }
 
     when (telaAtual) {
@@ -50,6 +51,7 @@ fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
             vm = vm,
             onVoltar = { telaAtual = "paciente" }
         )
+        // Aqui você pode adicionar "consultas" ou "pressao" futuramente
     }
 }
 
@@ -59,7 +61,11 @@ fun MainScreen(
     vm: MedicamentosViewModel,
     onAbrirAreaMedico: () -> Unit
 ) {
+    // Observando os estados do ViewModel (União das tabelas de Medicamento e Horário)
     val listaRemedios by vm.medicamentosPrescritos.collectAsState()
+    val listaHorarios by vm.horariosPrescritos.collectAsState()
+    val dosesTomadas by vm.dosesTomadas.collectAsState()
+
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -80,11 +86,7 @@ fun MainScreen(
                     title = { Text("MEUS REMÉDIOS", fontWeight = FontWeight.Black) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(
-                                Icons.Default.Menu,
-                                contentDescription = "Menu",
-                                modifier = Modifier.size(32.dp)
-                            )
+                            Icon(Icons.Default.Menu, contentDescription = "Menu", modifier = Modifier.size(32.dp))
                         }
                     },
                     actions = {
@@ -98,83 +100,11 @@ fun MainScreen(
                 )
             },
             bottomBar = {
-                NavigationBar(
-                    containerColor = Color(0xFFF0F0F0),
-                    modifier = Modifier.height(100.dp)
-                ) {
-                    NavigationBarItem(
-                        selected = true,
-                        onClick = {},
-                        icon = {
-                            Image(
-                                painterResource(R.drawable.icone_remedios),
-                                contentDescription = null,
-                                modifier = Modifier.size(80.dp)
-                            )
-                        },
-                        label = { Text("Início", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-                        alwaysShowLabel = true
-                    )
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = {},
-                        icon = {
-                            Image(
-                                painterResource(R.drawable.icone_consulta),
-                                contentDescription = null,
-                                modifier = Modifier.size(80.dp)
-                            )
-                        },
-                        label = { Text("Consultas", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-                        alwaysShowLabel = true
-                    )
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = {},
-                        icon = {
-                            Image(
-                                painterResource(R.drawable.icone_pressao),
-                                contentDescription = null,
-                                modifier = Modifier.size(80.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                "Pressão",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.offset(y = (-12).dp)
-                            )
-                        },
-                        alwaysShowLabel = true
-                    )
-                }
+                BarraNavegacaoInferior()
             }
         ) { innerPadding ->
             if (listaRemedios.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = "💊", fontSize = 64.sp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Nenhum remédio prescrito",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "O médico ainda não selecionou\nos seus medicamentos",
-                            fontSize = 15.sp,
-                            color = Color.LightGray,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                TelaVazia(innerPadding)
             } else {
                 LazyColumn(
                     modifier = Modifier
@@ -184,13 +114,28 @@ fun MainScreen(
                         .padding(horizontal = 16.dp)
                 ) {
                     val turnos = listOf("Manhã", "Tarde", "Noite")
-                    turnos.forEach { turno ->
-                        val remediosDoTurno = listaRemedios.filter { it.turno == turno }
-                        if (remediosDoTurno.isNotEmpty()) {
-                            item { TurnoHeader(turno) }
-                            items(remediosDoTurno) { remedio ->
-                                CardMedicamentoPrescrito(remedio)
-                                Spacer(modifier = Modifier.height(12.dp))
+
+                    turnos.forEach { nomeTurno ->
+                        // FILTRO CORRETO: Buscamos horários que pertencem a este turno
+                        val horariosDesteTurno = listaHorarios.filter { it.turno == nomeTurno }
+
+                        if (horariosDesteTurno.isNotEmpty()) {
+                            item { TurnoHeader(nomeTurno) }
+
+                            items(horariosDesteTurno) { horario ->
+                                // BUSCA DO MEDICAMENTO: Relacionamos o Horário ao Medicamento pelo ID
+                                val medicamento = listaRemedios.find { it.id == horario.medicamentoId }
+
+                                if (medicamento != null) {
+                                    val jaTomado = dosesTomadas.contains(horario.id)
+                                    CardMedicamentoPrescrito(
+                                        remedio = medicamento,
+                                        horarioInfo = horario,
+                                        jaTomado = jaTomado,
+                                        onToggleTomado = { vm.toggleDose(horario.id) }
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
                             }
                         }
                     }
@@ -201,37 +146,17 @@ fun MainScreen(
 }
 
 @Composable
-fun DrawerLateral(onAreaMedicoClick: () -> Unit) {
-    ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "Menu",
-            fontWeight = FontWeight.Black,
-            fontSize = 22.sp,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-        )
-        HorizontalDivider()
-        Spacer(modifier = Modifier.height(8.dp))
-        NavigationDrawerItem(
-            icon = { Text("🩺", fontSize = 24.sp) },
-            label = {
-                Column {
-                    Text("Área do Médico", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("Selecionar medicamentos", fontSize = 12.sp, color = Color.Gray)
-                }
-            },
-            selected = false,
-            onClick = onAreaMedicoClick,
-            modifier = Modifier.padding(horizontal = 12.dp)
-        )
-    }
-}
-
-@Composable
-fun CardMedicamentoPrescrito(remedio: MedicamentoPrescrito) {
+fun CardMedicamentoPrescrito(
+    remedio: MedicamentoPrescrito,
+    horarioInfo: HorarioPrescrito,
+    jaTomado: Boolean,
+    onToggleTomado: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
+        colors = CardDefaults.cardColors(
+            containerColor = if (jaTomado) Color(0xFFE8F5E9) else Color(0xFFF3E5F5)
+        ),
         elevation = CardDefaults.cardElevation(4.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -246,48 +171,44 @@ fun CardMedicamentoPrescrito(remedio: MedicamentoPrescrito) {
                         text = remedio.nome,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4A148C)
+                        color = if (jaTomado) Color(0xFF2E7D32) else Color(0xFF4A148C)
                     )
-                    // Exibe concentração e forma vindos do banco
-                    Text(
-                        text = remedio.concentracao,
-                        fontSize = 16.sp,
-                        color = Color.DarkGray
-                    )
-                    Text(
-                        text = remedio.forma,
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
+                    Text(text = remedio.concentracao, fontSize = 16.sp, color = Color.DarkGray)
+                    Text(text = remedio.forma, fontSize = 14.sp, color = Color.Gray)
                 }
                 Surface(
-                    color = Color(0xFFBDBDBD),
+                    color = if (jaTomado) Color(0xFF81C784) else Color(0xFFBDBDBD),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = remedio.horario,
+                        text = horarioInfo.horario,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 16.sp,
+                        color = Color.White
                     )
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { },
+                onClick = onToggleTomado,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE1BEE7)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (jaTomado) Color(0xFFC8E6C9) else Color(0xFFE1BEE7)
+                ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Image(
-                    painterResource(R.drawable.icone_registro),
-                    contentDescription = null,
-                    modifier = Modifier.size(80.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+                if (!jaTomado) {
+                    Image(
+                        painterResource(R.drawable.icone_registro),
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 Text(
-                    "JÁ TOMEI",
-                    color = Color(0xFF4A148C),
+                    text = if (jaTomado) "TOMADO ✓" else "JÁ TOMEI",
+                    color = if (jaTomado) Color(0xFF1B5E20) else Color(0xFF4A148C),
                     fontWeight = FontWeight.Black,
                     fontSize = 18.sp
                 )
@@ -297,34 +218,73 @@ fun CardMedicamentoPrescrito(remedio: MedicamentoPrescrito) {
 }
 
 @Composable
+fun BarraNavegacaoInferior() {
+    NavigationBar(containerColor = Color(0xFFF0F0F0), modifier = Modifier.height(100.dp)) {
+        NavigationBarItem(
+            selected = true,
+            onClick = {},
+            icon = { Image(painterResource(R.drawable.icone_remedios), null, Modifier.size(50.dp)) },
+            label = { Text("Início", fontWeight = FontWeight.Bold) }
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = {},
+            icon = { Image(painterResource(R.drawable.icone_consulta), null, Modifier.size(50.dp)) },
+            label = { Text("Consultas", fontWeight = FontWeight.Bold) }
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = {},
+            icon = { Image(painterResource(R.drawable.icone_pressao), null, Modifier.size(50.dp)) },
+            label = { Text("Pressão", fontWeight = FontWeight.Bold) }
+        )
+    }
+}
+
+@Composable
+fun TelaVazia(padding: PaddingValues) {
+    Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "💊", fontSize = 64.sp)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Nenhum remédio prescrito", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+            Text("O médico ainda não selecionou\nos seus medicamentos", textAlign = TextAlign.Center, color = Color.LightGray)
+        }
+    }
+}
+
+@Composable
 fun TurnoHeader(titulo: String) {
-    val corFundo = Color(0xFF9E9E9E)
     val emoji = when (titulo) {
         "Manhã" -> "🌅"
         "Tarde" -> "☀️"
         else -> "🌙"
     }
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = corFundo),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E)),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(text = emoji, fontSize = 40.sp)
             Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = titulo.uppercase(),
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.Black,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f)
-            )
+            Text(titulo.uppercase(), fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
         }
+    }
+}
+
+@Composable
+fun DrawerLateral(onAreaMedicoClick: () -> Unit) {
+    ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Menu", fontWeight = FontWeight.Black, fontSize = 22.sp, modifier = Modifier.padding(horizontal = 24.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        NavigationDrawerItem(
+            icon = { Text("🩺", fontSize = 24.sp) },
+            label = { Text("Área do Médico", fontWeight = FontWeight.Bold) },
+            selected = false,
+            onClick = onAreaMedicoClick,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        )
     }
 }
