@@ -255,20 +255,40 @@ fun TelaVazia(padding: PaddingValues) {
 
 @Composable
 fun TurnoHeader(titulo: String) {
-    val emoji = when (titulo) {
-        "Manhã" -> "🌅"
-        "Tarde" -> "☀️"
-        else -> "🌙"
-    }
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp, horizontal = 1.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E)),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(text = emoji, fontSize = 40.sp)
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(titulo.uppercase(), fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(2.dp)
+        ) {
+
+            Text(
+                titulo.uppercase(),
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.align(Alignment.Center).offset(x = 6.dp, y = 8.dp),
+                textAlign = TextAlign.Center
+            )
+
+            Image(
+                painter = painterResource(
+                    when (titulo) {
+                        "Manhã" -> R.drawable.acordar_flat
+                        "Tarde" -> R.drawable.almoco_flat
+                        else -> R.drawable.dormir_flat
+                    }
+                ),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(92.dp)
+                    .align(Alignment.CenterStart)
+            )
         }
     }
 }
