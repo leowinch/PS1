@@ -9,7 +9,6 @@ import java.util.Calendar
 
 object AgendaGenerator {
 
-    // Nomes dos dias da semana em português
     private val DIAS_SEMANA = listOf("Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb")
     private val MESES = listOf(
         "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -28,34 +27,30 @@ object AgendaGenerator {
         return lista
     }
 
-    // Agrupa uma lista de dias em semanas (cada semana começa no Domingo ou no primeiro dia)
-    // Retorna lista de listas, cada sublista é uma semana com até 7 dias
-    // Os dias da semana são indexados por Calendar.DAY_OF_WEEK (Dom=1, Seg=2... Sáb=7)
+    // Agrupa uma lista de dias em semanas (cada semana começa no Domingo)
     private fun agruparEmSemanas(dias: List<Calendar>): List<List<Calendar?>> {
         if (dias.isEmpty()) return emptyList()
 
         val semanas = mutableListOf<List<Calendar?>>()
-        val semanaAtual = Array<Calendar?>(7) { null } // índice 0=Dom, 1=Seg ... 6=Sáb
-
-        // Preenche a primeira semana a partir do dia da semana do primeiro dia
-        var primeiroDia = true
         val diasRestantes = dias.toMutableList()
+        var primeiroDia = true
 
         while (diasRestantes.isNotEmpty()) {
             val semana = Array<Calendar?>(7) { null }
 
             if (primeiroDia) {
-                // Posiciona o primeiro dia na coluna certa da semana
-                diasRestantes.forEach { dia ->
-                    val coluna = dia.get(Calendar.DAY_OF_WEEK) - 1 // 0=Dom, 6=Sáb
-                    // Verifica se pertence à mesma semana do primeiro dia
-                    val primeiroColuna = diasRestantes.first().get(Calendar.DAY_OF_WEEK) - 1
-                    if (coluna >= primeiroColuna) {
+                // Posiciona os dias da primeira semana na coluna correta (Dom=0 ... Sáb=6)
+                val primeiroColuna = diasRestantes.first().get(Calendar.DAY_OF_WEEK) - 1
+                val inseridos = mutableListOf<Calendar>()
+                for (dia in diasRestantes) {
+                    val coluna = dia.get(Calendar.DAY_OF_WEEK) - 1
+                    if (coluna >= primeiroColuna && semana[coluna] == null) {
                         semana[coluna] = dia
+                        inseridos.add(dia)
+                    } else if (coluna < primeiroColuna) {
+                        break
                     }
                 }
-                // Remove os dias que foram inseridos nessa semana
-                val inseridos = semana.filterNotNull()
                 diasRestantes.removeAll(inseridos)
                 primeiroDia = false
             } else {
@@ -101,7 +96,7 @@ object AgendaGenerator {
                 """)
 
                 semanas.forEachIndexed { semIdx, semana ->
-                    // Linha de cabeçalho da semana (com as datas reais)
+                    // Linha de cabeçalho da semana
                     corpo.append("<tr class='header-row'>")
                     corpo.append("<th class='sem-label'>Sem. ${semIdx + 1}</th>")
                     for (col in 0..6) {
@@ -110,6 +105,7 @@ object AgendaGenerator {
                             val diaN = dia.get(Calendar.DAY_OF_MONTH)
                             val mesN = MESES[dia.get(Calendar.MONTH)]
                             val nomeDia = DIAS_SEMANA[col]
+                            // Mostra nome do dia + data (ex: "Ter\n5 Mai")
                             corpo.append("<th class='dia-header'>$nomeDia<br/><span class='data-pequena'>$diaN $mesN</span></th>")
                         } else {
                             corpo.append("<th class='dia-vazio'>${DIAS_SEMANA[col]}</th>")
@@ -117,7 +113,7 @@ object AgendaGenerator {
                     }
                     corpo.append("</tr>")
 
-                    // Linha dos quadrados
+                    // Linha dos quadrados para marcar tomada
                     corpo.append("<tr class='box-row'>")
                     corpo.append("<td class='sem-label-vazia'></td>")
                     for (col in 0..6) {
@@ -138,9 +134,13 @@ object AgendaGenerator {
             corpo.append("<div class='separador'></div>")
         }
 
-        // Data de geração
         val hoje = Calendar.getInstance()
         val dataGeracao = "${hoje.get(Calendar.DAY_OF_MONTH)}/${hoje.get(Calendar.MONTH) + 1}/${hoje.get(Calendar.YEAR)}"
+
+        // Calcula a data de início (amanhã) para exibir no rodapé
+        val amanha = Calendar.getInstance()
+        amanha.add(Calendar.DAY_OF_MONTH, 1)
+        val inicioTratamento = "${amanha.get(Calendar.DAY_OF_MONTH)} ${MESES[amanha.get(Calendar.MONTH)]}"
 
         return """
             <html>
@@ -280,7 +280,7 @@ object AgendaGenerator {
             <body>
                 <h2>Agenda de Medicamentos</h2>
                 <div class="subtitulo">ESF ALTO DA BOA VISTA</div>
-                <div class="data-geracao">Gerada em: $dataGeracao &nbsp;·&nbsp; Início do tratamento: amanhã</div>
+                <div class="data-geracao">Gerada em: $dataGeracao &nbsp;·&nbsp; Início do tratamento: $inicioTratamento</div>
                 <div class="linha-paciente">Paciente: ___________________________________________</div>
                 $corpo
             </body>
