@@ -162,7 +162,7 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
                     val prescrito = prescritosMap[med.id]
                     val horariosAtuais = todosHorarios
                         .filter { it.medicamentoId == med.id }
-                        .map { HorarioUiState(it.horario, it.turno) }
+                        .map { HorarioUiState(it.horario, it.turno, it.qtde) }
 
                     MedicamentoUiState(
                         medicamento = med,
@@ -212,6 +212,18 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
                 if (it.medicamento.id == id) {
                     val novos = it.horarios.toMutableList()
                     novos[index] = novos[index].copy(horario = horario)
+                    it.copy(horarios = novos)
+                } else it
+            }
+        }
+    }
+
+    fun atualizarQtdeHorario(id: Int, index: Int, qtde: Int) {
+        _medicamentosSupabase.update { lista ->
+            lista.map {
+                if (it.medicamento.id == id) {
+                    val novos = it.horarios.toMutableList()
+                    novos[index] = novos[index].copy(qtde = qtde)
                     it.copy(horarios = novos)
                 } else it
             }
@@ -270,7 +282,8 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
                             HorarioPrescrito(
                                 medicamentoId = ui.medicamento.id,
                                 horario = h.horario,
-                                turno = h.turno
+                                turno = h.turno,
+                                qtde = h.qtde
                             )
                         )
                     }

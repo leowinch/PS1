@@ -130,7 +130,8 @@ fun TelaDoMedico(
                                             HorarioPrescrito(
                                                 medicamentoId = ui.medicamento.id,
                                                 horario = h.horario,
-                                                turno = h.turno
+                                                turno = h.turno,
+                                                qtde = h.qtde
                                             )
                                         }
                                     )

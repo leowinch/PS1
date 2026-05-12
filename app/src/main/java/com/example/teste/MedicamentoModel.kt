@@ -26,7 +26,8 @@ data class HorarioPrescrito(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val medicamentoId: Int,     // referência ao MedicamentoPrescrito
     val horario: String,        // "08:00"
-    val turno: String           // "Manhã", "Tarde", "Noite"
+    val turno: String,           // "Manhã", "Tarde", "Noite"
+    val qtde: Int               // qtde que deve ser administrada naquele horário
 )
 
 // -------------------------------------------------------
@@ -40,7 +41,7 @@ data class MedicamentoPrescrito(
     val concentracao: String,
     val forma: String,
     val diasTratamento: Int,        // quantos dias o paciente vai tomar
-    val dataInicio: Long            // timestamp do dia seguinte à prescrição (meia-noite)
+    val dataInicio: Long,            // timestamp do dia seguinte à prescrição (meia-noite)
 )
 
 // -------------------------------------------------------
@@ -57,7 +58,8 @@ data class DoseTomada(
 // -------------------------------------------------------
 data class HorarioUiState(
     val horario: String = "08:00",
-    val turno: String = "Manhã"
+    val turno: String = "Manhã",
+    val qtde: Int = 1
 )
 
 // -------------------------------------------------------
@@ -67,7 +69,8 @@ data class MedicamentoUiState(
     val medicamento: MedicamentoSupabase,
     val selecionado: Boolean = false,
     val horarios: List<HorarioUiState> = listOf(HorarioUiState()),
-    val diasTratamento: Int = 7
+    val diasTratamento: Int = 7,
+    val qtde: Int = 1
 )
 
 // -------------------------------------------------------
