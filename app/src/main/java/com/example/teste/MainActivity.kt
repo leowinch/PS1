@@ -3,6 +3,7 @@ package com.example.teste
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -187,6 +188,13 @@ fun TelaAgendarConsulta(
     vm: MedicamentosViewModel,
     onVoltar: () -> Unit
 ) {
+    // Cores do Tema Dark Customizado
+    val CorFundoEscuro = Color(0xFF121212)
+    val CorSuperficie = Color(0xFF1E1E1E)
+    val CorPrimaria = Color(0xFFBB86FC) // Roxo suave (padrão Material Dark) ou use Color(0xFF64B5F6) para Azul
+    val CorTextoPrimario = Color.White
+    val CorTextoSecundario = Color(0xFFB0B0B0)
+
     var mesAtual       by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
     var diaSelecionado by remember { mutableStateOf<LocalDate?>(vm.consultaAgendada.value) }
     var confirmado     by remember { mutableStateOf(false) }
@@ -196,12 +204,17 @@ fun TelaAgendarConsulta(
         .replaceFirstChar { it.uppercase() }
     val ano          = mesAtual.year
     val diasNoMes    = mesAtual.lengthOfMonth()
-    // 0 = Domingo, 1 = Segunda … 6 = Sábado
     val primeiroDiaSemana = mesAtual.dayOfWeek.value % 7
 
     Scaffold(
+        containerColor = CorFundoEscuro, // Fundo principal preto
         topBar = {
             CenterAlignedTopAppBar(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = CorFundoEscuro,
+                    titleContentColor = CorTextoPrimario,
+                    navigationIconContentColor = CorTextoPrimario
+                ),
                 title = { Text("AGENDAR CONSULTA", fontWeight = FontWeight.Black) },
                 navigationIcon = {
                     IconButton(onClick = onVoltar) {
@@ -216,40 +229,33 @@ fun TelaAgendarConsulta(
         }
     ) { innerPadding ->
 
-        // ── Tela de confirmação ──────────────────────────────────────────────
         if (confirmado) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .background(CorFundoEscuro),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                     Text("✅", fontSize = 80.sp)
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(
                         "Consulta agendada!",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color(0xFF2E7D32),
+                        color = Color(0xFF81C784), // Verde mais claro para fundo preto
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     diaSelecionado?.let { data ->
-                        val nomeDia = data.dayOfWeek
-                            .getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
-                            .replaceFirstChar { it.uppercase() }
-                        val nomeMesDia = data.month
-                            .getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
-                            .replaceFirstChar { it.uppercase() }
+                        val nomeDia = data.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
+                        val nomeMesDia = data.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
                         Text(
                             "$nomeDia\n${data.dayOfMonth} de $nomeMesDia de ${data.year}",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1B5E20),
+                            color = CorTextoPrimario,
                             textAlign = TextAlign.Center,
                             lineHeight = 32.sp
                         )
@@ -257,32 +263,23 @@ fun TelaAgendarConsulta(
                     Spacer(modifier = Modifier.height(40.dp))
                     Button(
                         onClick = onVoltar,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(64.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
+                        modifier = Modifier.fillMaxWidth().height(64.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text(
-                            "VOLTAR",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 20.sp,
-                            color = Color.White
-                        )
+                        Text("VOLTAR", fontWeight = FontWeight.Black, fontSize = 20.sp, color = Color.White)
                     }
                 }
             }
             return@Scaffold
         }
 
-        // ── Calendário ──────────────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-
             // Navegação de mês
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -291,51 +288,44 @@ fun TelaAgendarConsulta(
             ) {
                 IconButton(
                     onClick = { mesAtual = mesAtual.minusMonths(1) },
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(Color(0xFFE3F2FD), CircleShape)
+                    modifier = Modifier.size(56.dp).background(CorSuperficie, CircleShape)
                 ) {
-                    Text("◀", fontSize = 22.sp, fontWeight = FontWeight.Black,
-                        color = Color(0xFF1565C0))
+                    Text("◀", fontSize = 22.sp, color = CorPrimaria)
                 }
 
                 Text(
                     "$nomeMes $ano",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF1A237E)
+                    color = CorTextoPrimario
                 )
 
                 IconButton(
                     onClick = { mesAtual = mesAtual.plusMonths(1) },
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(Color(0xFFE3F2FD), CircleShape)
+                    modifier = Modifier.size(56.dp).background(CorSuperficie, CircleShape)
                 ) {
-                    Text("▶", fontSize = 22.sp, fontWeight = FontWeight.Black,
-                        color = Color(0xFF1565C0))
+                    Text("▶", fontSize = 22.sp, color = CorPrimaria)
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Cabeçalho dias da semana
+            // Dias da semana
             val semana = listOf("Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb")
             Row(modifier = Modifier.fillMaxWidth()) {
                 semana.forEach { dia ->
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         Text(
                             dia,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = Color(0xFF5C6BC0),
-                            textAlign = TextAlign.Center
+                            color = CorPrimaria
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Grade de dias
             val totalCelulas = diasNoMes + primeiroDiaSemana
@@ -344,31 +334,27 @@ fun TelaAgendarConsulta(
             for (linha in 0 until linhas) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (col in 0..6) {
-                        val numeroCelula    = linha * 7 + col
-                        val numeroDia       = numeroCelula - primeiroDiaSemana + 1
-                        val dataDestaCelula = if (numeroDia in 1..diasNoMes)
-                            mesAtual.withDayOfMonth(numeroDia) else null
+                        val numeroCelula = linha * 7 + col
+                        val numeroDia = numeroCelula - primeiroDiaSemana + 1
+                        val dataDestaCelula = if (numeroDia in 1..diasNoMes) mesAtual.withDayOfMonth(numeroDia) else null
 
-                        val estaSelecionado = dataDestaCelula != null &&
-                                dataDestaCelula == diaSelecionado
-                        val ehPassado = dataDestaCelula != null &&
-                                dataDestaCelula.isBefore(LocalDate.now())
+                        val estaSelecionado = dataDestaCelula != null && dataDestaCelula == diaSelecionado
+                        val ehPassado = dataDestaCelula != null && dataDestaCelula.isBefore(LocalDate.now())
                         val ehHoje = dataDestaCelula == LocalDate.now()
 
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .aspectRatio(1f)
-                                .padding(3.dp)
+                                .padding(4.dp)
                                 .background(
                                     color = when {
-                                        estaSelecionado -> Color(0xFF1565C0)
-                                        ehHoje          -> Color(0xFFBBDEFB)
-                                        ehPassado       -> Color.Transparent
-                                        dataDestaCelula != null -> Color(0xFFF5F5F5)
+                                        estaSelecionado -> CorPrimaria
+                                        ehHoje          -> CorPrimaria.copy(alpha = 0.2f)
+                                        dataDestaCelula != null -> CorSuperficie
                                         else            -> Color.Transparent
                                     },
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable(enabled = dataDestaCelula != null && !ehPassado) {
                                     diaSelecionado = dataDestaCelula
@@ -378,13 +364,12 @@ fun TelaAgendarConsulta(
                             if (numeroDia in 1..diasNoMes) {
                                 Text(
                                     text = numeroDia.toString(),
-                                    fontWeight = if (estaSelecionado) FontWeight.Black
-                                    else FontWeight.Normal,
+                                    fontWeight = if (estaSelecionado) FontWeight.Black else FontWeight.Medium,
                                     fontSize = 18.sp,
                                     color = when {
-                                        estaSelecionado -> Color.White
-                                        ehPassado       -> Color(0xFFBDBDBD)
-                                        else            -> Color(0xFF212121)
+                                        estaSelecionado -> Color.Black // Texto preto no fundo roxo/azul para contraste
+                                        ehPassado       -> Color(0xFF444444)
+                                        else            -> CorTextoPrimario
                                     }
                                 )
                             }
@@ -396,39 +381,30 @@ fun TelaAgendarConsulta(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Resumo / instrução
+            // Resumo e Botão Final
             if (diaSelecionado != null) {
-                val data = diaSelecionado!!
-                val nomeDia = data.dayOfWeek
-                    .getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
-                    .replaceFirstChar { it.uppercase() }
-                val nomeMesDia = data.month
-                    .getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
-                    .replaceFirstChar { it.uppercase() }
-
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-                    shape = RoundedCornerShape(16.dp)
+                    colors = CardDefaults.cardColors(containerColor = CorSuperficie),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CorPrimaria.copy(alpha = 0.5f))
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            "📅  Data selecionada:",
-                            fontSize = 16.sp,
-                            color = Color(0xFF1565C0),
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "$nomeDia, ${data.dayOfMonth} de $nomeMesDia de ${data.year}",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF0D47A1),
-                            textAlign = TextAlign.Center
-                        )
+                        Text("📅 Data selecionada:", fontSize = 14.sp, color = CorTextoSecundario)
+                        diaSelecionado?.let { data ->
+                            val nomeDia = data.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
+                            val nomeMesDia = data.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
+                            Text(
+                                "$nomeDia, ${data.dayOfMonth} de $nomeMesDia",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                color = CorPrimaria,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
 
@@ -439,43 +415,32 @@ fun TelaAgendarConsulta(
                         vm.agendarConsulta(diaSelecionado!!)
                         confirmado = true
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(68.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                    modifier = Modifier.fillMaxWidth().height(68.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = CorPrimaria),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text(
-                        "CONFIRMAR CONSULTA",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 20.sp,
-                        color = Color.White
-                    )
+                    Text("CONFIRMAR CONSULTA", fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.Black)
                 }
             } else {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF332B00)), // Amarelo bem escuro
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text(
-                        "👆  Toque em um dia para\nescolher a data da consulta",
-                        modifier = Modifier
-                            .padding(20.dp)
-                            .fillMaxWidth(),
-                        fontSize = 18.sp,
+                        "👆 Selecione um dia no calendário",
+                        modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFF57F17),
+                        color = Color(0xFFFFD54F),
                         textAlign = TextAlign.Center
                     )
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // TELA: PRÓXIMA CONSULTA (uso do paciente)
 // ─────────────────────────────────────────────────────────────────────────────
