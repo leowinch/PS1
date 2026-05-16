@@ -7,6 +7,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.time.LocalDate
 
 // -------------------------------------------------------
 // Helpers de data
@@ -53,6 +54,14 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
     private val horarioDao = AppDatabase.getInstance(app).horarioDao()
     private val doseDao = AppDatabase.getInstance(app).doseDao()
 
+
+
+    private val _consultaAgendada = MutableStateFlow<LocalDate?>(null)
+    val consultaAgendada: StateFlow<LocalDate?> = _consultaAgendada.asStateFlow()
+
+    fun agendarConsulta(data: LocalDate) {
+        _consultaAgendada.value = data
+    }
     // ---------------------------------------------------
     // Estado da tela do paciente
     // ---------------------------------------------------
