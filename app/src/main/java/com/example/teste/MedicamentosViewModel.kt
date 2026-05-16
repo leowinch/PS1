@@ -68,6 +68,8 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
     private val _dosesTomadas = MutableStateFlow<Set<Int>>(emptySet()) // ids de HorarioPrescrito tomados hoje
     val dosesTomadas: StateFlow<Set<Int>> = _dosesTomadas
 
+    val icon: String = "white_pill.png"
+
     init {
         // Carrega horários sempre que a lista de medicamentos mudar
         viewModelScope.launch {

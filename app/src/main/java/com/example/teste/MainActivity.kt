@@ -189,6 +189,10 @@ fun CardMedicamentoPrescrito(
                     )
                 }
             }
+            Column(modifier = Modifier.fillMaxSize(1f)) {
+                DrawPills(horarioInfo.qtde)
+                Text("QTDE = ${horarioInfo.qtde}")
+            }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onToggleTomado,
@@ -212,6 +216,7 @@ fun CardMedicamentoPrescrito(
                     fontWeight = FontWeight.Black,
                     fontSize = 18.sp
                 )
+
             }
         }
     }
@@ -306,5 +311,49 @@ fun DrawerLateral(onAreaMedicoClick: () -> Unit) {
             onClick = onAreaMedicoClick,
             modifier = Modifier.padding(horizontal = 12.dp)
         )
+    }
+}
+
+
+@Composable
+fun DrawPills(
+    qtde: Int,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        // Até 5 comprimidos → desenha todos
+        if (qtde <= 5) {
+
+            repeat(qtde) {
+                Image(
+                    painter = painterResource(R.drawable.white_pill),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .padding(end = 2.dp)
+                )
+            }
+
+        } else {
+
+            // Mais de 5 → 1 comprimido + número
+            Image(
+                painter = painterResource(R.drawable.white_pill),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            Text(
+                text = "x$qtde",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+        }
     }
 }

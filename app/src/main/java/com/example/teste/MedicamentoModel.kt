@@ -59,7 +59,7 @@ data class DoseTomada(
 data class HorarioUiState(
     val horario: String = "08:00",
     val turno: String = "Manhã",
-    val qtde: Int = 1
+    val qtde: Int = 4
 )
 
 // -------------------------------------------------------
@@ -70,7 +70,7 @@ data class MedicamentoUiState(
     val selecionado: Boolean = false,
     val horarios: List<HorarioUiState> = listOf(HorarioUiState()),
     val diasTratamento: Int = 7,
-    val qtde: Int = 1
+    val qtde: Int = 4
 )
 
 // -------------------------------------------------------

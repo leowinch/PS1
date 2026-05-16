@@ -255,7 +255,7 @@ fun TelaDoMedico(
                                 onRemoverHorario = { idx -> vm.removerHorario(uiState.medicamento.id, idx) },
                                 onHorarioChange = { idx, h -> vm.atualizarHorario(uiState.medicamento.id, idx, h) },
                                 onTurnoChange = { idx, t -> vm.atualizarTurno(uiState.medicamento.id, idx, t) },
-                                onDiasChange = { vm.atualizarDias(uiState.medicamento.id, it) }
+                                onDiasChange = { vm.atualizarDias(uiState.medicamento.id, it) },
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                         }
@@ -363,7 +363,9 @@ fun CardMedicamentoSelecao(
                         podeDeletar = uiState.horarios.size > 1,
                         onHorarioChange = { onHorarioChange(index, it) },
                         onTurnoChange = { onTurnoChange(index, it) },
-                        onDeletar = { onRemoverHorario(index) }
+                        onDeletar = { onRemoverHorario(index) },
+
+
                     )
                     if (index < uiState.horarios.size - 1)
                         Spacer(modifier = Modifier.height(8.dp))
@@ -395,9 +397,11 @@ fun HorarioItem(
     turno: String,
     turnos: List<String>,
     podeDeletar: Boolean,
+    qtde: Int,
     onHorarioChange: (String) -> Unit,
     onTurnoChange: (String) -> Unit,
-    onDeletar: () -> Unit
+    onDeletar: () -> Unit,
+    onQtdeChange: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier
