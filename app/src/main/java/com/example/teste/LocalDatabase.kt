@@ -1,6 +1,10 @@
 package com.example.teste
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
@@ -51,6 +55,10 @@ interface HorarioDao {
 @Dao
 interface DoseDao {
 
+    /** Flow reativo — Room re-emite sempre que a tabela muda no dia informado. */
+    @Query("SELECT * FROM doses_tomadas WHERE dataTimestamp = :meianoite")
+    fun observarPorDia(meianoite: Long): Flow<List<DoseTomada>>
+
     @Query("""
         SELECT * FROM doses_tomadas 
         WHERE horarioId = :horarioId AND dataTimestamp = :dataTimestamp
@@ -99,4 +107,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
     }
+}
+
+// -------------------------------------------------------
+// DataStore — preferências persistidas entre sessões
+// -------------------------------------------------------
+val Context.dataStore by preferencesDataStore(name = "app_prefs")
+
+object AppPrefsKeys {
+    val STREAK        = intPreferencesKey("streak_dias")
+    val RECORD        = intPreferencesKey("record_streak")
+    val TOMADO_HOJE   = booleanPreferencesKey("tomado_hoje")
+    val ULTIMA_DATA   = stringPreferencesKey("ultima_data")
+    val DATA_CONSULTA = stringPreferencesKey("consulta_agendada")
 }
