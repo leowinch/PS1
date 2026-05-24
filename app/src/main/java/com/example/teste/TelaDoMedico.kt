@@ -84,7 +84,7 @@ fun TelaDoMedico(
                             Icon(Icons.Default.ArrowBack, contentDescription = "Voltar", tint = Color(0xFF1A1A1A))
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("🩺 Área do Médico", fontWeight = FontWeight.Black, fontSize = 20.sp, color = Color(0xFF1A1A1A))
+                            Text("🩺 Área do Agente de Saúde", fontWeight = FontWeight.Black, fontSize = 20.sp, color = Color(0xFF1A1A1A))
                             if (totalSelecionados > 0)
                                 Text("$totalSelecionados selecionado(s)", fontSize = 13.sp, color = Color(0xFF4A148C))
                         }
@@ -256,6 +256,7 @@ fun TelaDoMedico(
                                 onHorarioChange = { idx, h -> vm.atualizarHorario(uiState.medicamento.id, idx, h) },
                                 onTurnoChange = { idx, t -> vm.atualizarTurno(uiState.medicamento.id, idx, t) },
                                 onDiasChange = { vm.atualizarDias(uiState.medicamento.id, it) },
+                                onQtdeChange = { idx, qtde -> vm.atualizarQtdeHorario(uiState.medicamento.id, idx, qtde)}
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                         }
@@ -276,7 +277,8 @@ fun CardMedicamentoSelecao(
     onRemoverHorario: (Int) -> Unit,
     onHorarioChange: (Int, String) -> Unit,
     onTurnoChange: (Int, String) -> Unit,
-    onDiasChange: (Int) -> Unit
+    onDiasChange: (Int) -> Unit,
+    onQtdeChange: (Int, Int) -> Unit
 ) {
     val med = uiState.medicamento
     val selecionado = uiState.selecionado
@@ -361,11 +363,11 @@ fun CardMedicamentoSelecao(
                         turno = horarioUi.turno,
                         turnos = turnos,
                         podeDeletar = uiState.horarios.size > 1,
+                        qtde = uiState.qtde,
                         onHorarioChange = { onHorarioChange(index, it) },
                         onTurnoChange = { onTurnoChange(index, it) },
                         onDeletar = { onRemoverHorario(index) },
-
-
+                        onQtdeChange = { novaQtde -> onQtdeChange(index, novaQtde) }
                     )
                     if (index < uiState.horarios.size - 1)
                         Spacer(modifier = Modifier.height(8.dp))
@@ -403,6 +405,9 @@ fun HorarioItem(
     onDeletar: () -> Unit,
     onQtdeChange: (Int) -> Unit
 ) {
+    var qtdeTexto by remember(qtde) {
+        mutableStateOf(qtde.toString())
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -435,6 +440,35 @@ fun HorarioItem(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
+        // quantidade de comprimidos por horário
+        OutlinedTextField(
+            value = qtdeTexto,
+            onValueChange = { novo ->
+                qtdeTexto = novo
+
+                novo.toIntOrNull()?.let { valor ->
+                    if (valor > 0) {
+                        onQtdeChange(valor)
+                    }
+                }
+            },
+            label = {
+                Text("Quantidade de comprimidos")
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF4A148C),
+                unfocusedBorderColor = Color(0xFFBBBBBB),
+                focusedTextColor = Color(0xFF1A1A1A),
+                unfocusedTextColor = Color(0xFF1A1A1A),
+                cursorColor = Color(0xFF4A148C)
+            ),
+            shape = RoundedCornerShape(8.dp)
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             turnos.forEach { t ->
                 val ativo = turno == t

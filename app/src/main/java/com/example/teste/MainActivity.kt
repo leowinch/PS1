@@ -670,12 +670,14 @@ fun CardMedicamentoPrescrito(
     onToggleTomado: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth()
+            .padding(vertical = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (jaTomado) Color(0xFFE8F5E9) else Color(0xFFF3E5F5)
         ),
         elevation = CardDefaults.cardElevation(4.dp),
         shape = RoundedCornerShape(16.dp)
+
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -708,7 +710,6 @@ fun CardMedicamentoPrescrito(
             }
             Column(modifier = Modifier.fillMaxSize(1f)) {
                 DrawPills(horarioInfo.qtde)
-                Text("QTDE = ${horarioInfo.qtde}")
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
@@ -778,7 +779,7 @@ fun TurnoHeader(titulo: String) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 1.dp, horizontal = 1.dp),
+            .padding(vertical = 2.dp, horizontal = 1.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF9E9E9E)),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -789,7 +790,7 @@ fun TurnoHeader(titulo: String) {
         ) {
             Text(
                 titulo.uppercase(),
-                fontSize = 28.sp,
+                fontSize = 26.sp,
                 fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -806,7 +807,7 @@ fun TurnoHeader(titulo: String) {
                 ),
                 contentDescription = null,
                 modifier = Modifier
-                    .size(92.dp)
+                    .size(64.dp)
                     .align(Alignment.CenterStart)
             )
         }
@@ -834,7 +835,7 @@ fun DrawerLateral(
 
         NavigationDrawerItem(
             icon     = { Text("🩺", fontSize = 24.sp) },
-            label    = { Text("Área do Médico", fontWeight = FontWeight.Bold) },
+            label    = { Text("Área do Agente de Saúde", fontWeight = FontWeight.Bold) },
             selected = false,
             onClick  = onAreaMedicoClick,
             modifier = Modifier.padding(horizontal = 12.dp)
@@ -863,26 +864,26 @@ fun DrawPills(
         verticalAlignment = Alignment.CenterVertically
     ) {
 
-        // Até 5 comprimidos → desenha todos
-        if (qtde <= 5) {
+        // Até 8 comprimidos → desenha todos
+        if (qtde <= 8) {
 
             repeat(qtde) {
                 Image(
                     painter = painterResource(R.drawable.white_pill),
                     contentDescription = null,
                     modifier = Modifier
-                        .size(20.dp)
-                        .padding(end = 2.dp)
+                        .size(30.dp)
+                        .padding(end = 4.dp)
                 )
             }
 
         } else {
 
-            // Mais de 5 → 1 comprimido + número
+            // Mais de 10 → 1 comprimido + número
             Image(
                 painter = painterResource(R.drawable.white_pill),
                 contentDescription = null,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(30.dp)
             )
 
             Spacer(modifier = Modifier.width(4.dp))
@@ -890,6 +891,7 @@ fun DrawPills(
             Text(
                 text = "x$qtde",
                 fontWeight = FontWeight.Bold,
+                color = Color.Gray,
                 fontSize = 16.sp
             )
         }
