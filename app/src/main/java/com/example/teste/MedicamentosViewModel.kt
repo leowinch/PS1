@@ -111,6 +111,8 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
     // INIT — carrega horários e agenda reset diário
     // ─────────────────────────────────────────────────────────────────────
 
+    val icon: String = "white_pill.png"
+
     init {
         // Carrega horários sempre que a lista de medicamentos mudar
         viewModelScope.launch {
