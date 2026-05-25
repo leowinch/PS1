@@ -247,6 +247,65 @@ fun BarraNavegacaoInferior() {
 }
 
 @Composable
+fun CardMedicamentoPrescrito(
+    remedio: MedicamentoPrescrito,
+    horarioInfo: HorarioPrescrito,
+    jaTomado: Boolean,
+    onToggleTomado: () -> Unit
+) {
+    val corCard by animateColorAsState(targetValue = if (jaTomado) Color(0xFFE8F5E9) else Color(0xFFFFF3E0), label = "corCard")
+    val escala  by animateFloatAsState(targetValue = if (jaTomado) 1.02f else 1f, label = "escala")
+
+    Card(
+        modifier = Modifier.fillMaxWidth().graphicsLayer { scaleX = escala; scaleY = escala },
+        colors = CardDefaults.cardColors(containerColor = corCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (jaTomado) 6.dp else 3.dp),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(remedio.nome, fontSize = 24.sp, fontWeight = FontWeight.Black, color = if (jaTomado) Color(0xFF1B5E20) else Color(0xFFE65100))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(remedio.concentracao, fontSize = 18.sp, color = Color.DarkGray, fontWeight = FontWeight.SemiBold)
+                    Text(remedio.forma, fontSize = 15.sp, color = Color.Gray)
+                }
+                Surface(color = if (jaTomado) Color(0xFF43A047) else Color(0xFFFF9800), shape = RoundedCornerShape(14.dp)) {
+                    Text(horarioInfo.horario, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.White)
+                }
+            }
+            Column(modifier = Modifier.fillMaxSize(1f)) {
+                DrawPills(horarioInfo.qtde)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onToggleTomado,
+                modifier = Modifier.fillMaxWidth().height(92.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if (jaTomado) Color(0xFF2E7D32) else Color(0xFFFF9800)),
+                shape = RoundedCornerShape(22.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    Box(modifier = Modifier.size(60.dp).background(Color.White.copy(alpha = 0.18f), CircleShape), contentAlignment = Alignment.Center) {
+                        Text(if (jaTomado) "✓" else "💊", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    }
+                    Spacer(modifier = Modifier.width(18.dp))
+                    Column {
+                        Text(if (jaTomado) "REMÉDIO TOMADO" else "EU TOMEI", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color.White)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(if (jaTomado) "Tudo certo por hoje" else "Toque para confirmar", fontSize = 14.sp, color = Color.White.copy(alpha = 0.92f))
+                    }
+                }
+            }
+            if (jaTomado) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFC8E6C9)), shape = RoundedCornerShape(14.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                        Text("✅", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Dose registrada com sucesso", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+                    }
+                }
+            }
 fun TelaVazia(padding: PaddingValues) {
     Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -352,6 +411,51 @@ fun DrawPills(
             Text(
                 text = "x$qtde",
                 fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+        }
+    }
+}
+
+
+@Composable
+fun DrawPills(
+    qtde: Int,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        // Até 8 comprimidos → desenha todos
+        if (qtde <= 8) {
+
+            repeat(qtde) {
+                Image(
+                    painter = painterResource(R.drawable.white_pill),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(30.dp)
+                        .padding(end = 4.dp)
+                )
+            }
+
+        } else {
+
+            // Mais de 10 → 1 comprimido + número
+            Image(
+                painter = painterResource(R.drawable.white_pill),
+                contentDescription = null,
+                modifier = Modifier.size(30.dp)
+            )
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            Text(
+                text = "x$qtde",
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray,
                 fontSize = 16.sp
             )
         }
