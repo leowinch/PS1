@@ -5,9 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,6 +28,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
@@ -43,6 +46,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +60,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private const val SENHA_MEDICO = "esfaltodaboavista"
+
 @Composable
 fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
     var telaAtual by remember { mutableStateOf("paciente") }
@@ -67,7 +72,6 @@ fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
         mostrarDialogSenha = true
     }
 
-    // Box raiz — o dialog flutua aqui, acima de tudo
     Box(modifier = Modifier.fillMaxSize()) {
 
         when (telaAtual) {
@@ -82,8 +86,8 @@ fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
                 onVoltar = { telaAtual = "paciente" }
             )
             "consultas" -> TelaConsultaPaciente(
-                vm       = vm,
-                onVoltar = { telaAtual = "paciente" }
+                vm            = vm,
+                onVoltar      = { telaAtual = "paciente" }
             )
             "agendar"  -> TelaAgendarConsulta(
                 vm       = vm,
@@ -91,7 +95,6 @@ fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
             )
         }
 
-        // Dialog sempre visível aqui, independente do drawer
         if (mostrarDialogSenha) {
             DialogSenha(
                 onSenhaCorreta = {
@@ -106,8 +109,6 @@ fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
     }
 }
 
-
-
 @Composable
 fun DialogSenha(
     onSenhaCorreta: () -> Unit,
@@ -118,7 +119,6 @@ fun DialogSenha(
     var erroSenha by remember { mutableStateOf(false) }
     var tentativas by remember { mutableStateOf(0) }
 
-    // Cores da tela do médico (dark)
     val corFundo    = Color(0xFF1E1E1E)
     val corPrimaria = Color(0xFFBB86FC)
     val corErro     = Color(0xFFCF6679)
@@ -142,7 +142,6 @@ fun DialogSenha(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
-                // Botão fechar no topo
                 Box(modifier = Modifier.fillMaxWidth()) {
                     IconButton(
                         onClick = onFechar,
@@ -156,7 +155,6 @@ fun DialogSenha(
                     }
                 }
 
-                // Ícone de cadeado
                 Box(
                     modifier = Modifier
                         .size(72.dp)
@@ -195,12 +193,11 @@ fun DialogSenha(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // Campo de senha
                 OutlinedTextField(
                     value = senha,
                     onValueChange = {
                         senha = it
-                        erroSenha = false // limpa erro ao digitar
+                        erroSenha = false
                     },
                     modifier = Modifier.fillMaxWidth(),
                     label = {
@@ -241,7 +238,6 @@ fun DialogSenha(
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                // Mensagem de erro
                 if (erroSenha) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -257,10 +253,8 @@ fun DialogSenha(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Botão confirmar
                 Button(
                     onClick = {
-                        // toLowerCase garante que qualquer combinação de maiúsculas/minúsculas funciona
                         if (senha.trim().lowercase() == SENHA_MEDICO) {
                             onSenhaCorreta()
                         } else {
@@ -307,14 +301,21 @@ fun MainScreen(
     vm: MedicamentosViewModel,
     onAbrirAreaMedico: () -> Unit,
     onAbrirConsultas: () -> Unit,
-    onAgendarConsulta: () -> Unit   // ← add this
+    onAgendarConsulta: () -> Unit
 ) {
     val listaRemedios by vm.medicamentosPrescritos.collectAsState()
     val listaHorarios by vm.horariosPrescritos.collectAsState()
-    val dosesTomadas by vm.dosesTomadas.collectAsState()
+    val dosesTomadas  by vm.dosesTomadas.collectAsState()
+    val horarioAlerta by vm.horarioAlerta.collectAsState()
+    val streak        by vm.streakDias.collectAsState()
+    val tomadoHoje    by vm.tomadoHoje.collectAsState()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
+    val scope       = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        vm.verificarHorarioProximo()
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -331,63 +332,241 @@ fun MainScreen(
             )
         }
     ) {
-        Scaffold(
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = { Text("MEUS REMÉDIOS", fontWeight = FontWeight.Black) },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu", modifier = Modifier.size(32.dp))
+        Box(modifier = Modifier.fillMaxSize()) {
+
+            Scaffold(
+                topBar = {
+                    CenterAlignedTopAppBar(
+                        title = { Text("MEUS REMÉDIOS", fontWeight = FontWeight.Black) },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(
+                                    Icons.Default.Menu,
+                                    contentDescription = "Menu",
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        },
+                        actions = {
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .padding(end = 8.dp),
+                                tint = Color.Gray
+                            )
                         }
-                    },
-                    actions = {
-                        Icon(
-                            Icons.Default.AccountCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp).padding(end = 8.dp),
-                            tint = Color.Gray
-                        )
-                    }
-                )
-            },
-            bottomBar = {
-                BarraNavegacaoInferior(onAbrirConsultas = onAbrirConsultas)
-            }
-        ) { innerPadding ->
-            if (listaRemedios.isEmpty()) {
-                TelaVazia(innerPadding)
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .background(Color.White)
-                        .padding(horizontal = 16.dp)
-                ) {
-                    val turnos = listOf("Manhã", "Tarde", "Noite")
+                    )
+                },
+                bottomBar = {
+                    // ALTERAÇÃO 1 & 2: barra com telaAtual="inicio" e cores mais claras
+                    BarraNavegacaoInferior(
+                        telaAtual        = "inicio",
+                        onAbrirInicio    = { /* já está na tela inicial */ },
+                        onAbrirConsultas = onAbrirConsultas
+                    )
+                }
+            ) { innerPadding ->
+                if (listaRemedios.isEmpty()) {
+                    TelaVazia(innerPadding)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .background(Color.White)
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        item {
+                            CardOfensiva(
+                                streak     = streak,
+                                tomadoHoje = tomadoHoje
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
 
-                    turnos.forEach { nomeTurno ->
-                        val horariosDesteTurno = listaHorarios.filter { it.turno == nomeTurno }
+                        val turnos = listOf("Manhã", "Tarde", "Noite")
 
-                        if (horariosDesteTurno.isNotEmpty()) {
-                            item { TurnoHeader(nomeTurno) }
+                        turnos.forEach { nomeTurno ->
+                            val horariosDesteTurno = listaHorarios.filter { it.turno == nomeTurno }
 
-                            items(horariosDesteTurno) { horario ->
-                                val medicamento = listaRemedios.find { it.id == horario.medicamentoId }
+                            if (horariosDesteTurno.isNotEmpty()) {
+                                item { TurnoHeader(nomeTurno) }
 
-                                if (medicamento != null) {
-                                    val jaTomado = dosesTomadas.contains(horario.id)
-                                    CardMedicamentoPrescrito(
-                                        remedio = medicamento,
-                                        horarioInfo = horario,
-                                        jaTomado = jaTomado,
-                                        onToggleTomado = { vm.toggleDose(horario.id) }
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                items(horariosDesteTurno) { horario ->
+                                    val medicamento = listaRemedios.find { it.id == horario.medicamentoId }
+
+                                    if (medicamento != null) {
+                                        val jaTomado = dosesTomadas.contains(horario.id)
+                                        CardMedicamentoPrescrito(
+                                            remedio        = medicamento,
+                                            horarioInfo    = horario,
+                                            jaTomado       = jaTomado,
+                                            onToggleTomado = { vm.toggleDose(horario.id) }
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
                                 }
                             }
                         }
                     }
+                }
+            }
+
+            horarioAlerta?.let { horario ->
+                val medicamento = listaRemedios.find { it.id == horario.medicamentoId }
+                AlertaRemedio(
+                    nomeRemedio = medicamento?.nome ?: "Remédio",
+                    horario     = horario.horario,
+                    onTomei     = {
+                        vm.toggleDose(horario.id)
+                        vm.fecharAlerta()
+                    },
+                    onFechar    = { vm.fecharAlerta() }
+                )
+            }
+        }
+    }
+}
+
+// =============================================================================
+// ALTERAÇÃO 1 & 2: BarraNavegacaoInferior refatorada
+//   - recebe telaAtual para saber qual aba destacar
+//   - ícone ativo com alpha 1f, inativo com alpha 0.35f (mais claro)
+//   - indicatorColor roxo claro em vez do escuro padrão
+// =============================================================================
+@Composable
+fun BarraNavegacaoInferior(
+    telaAtual: String,            // "inicio" ou "consultas"
+    onAbrirInicio: () -> Unit,
+    onAbrirConsultas: () -> Unit
+) {
+    NavigationBar(
+        containerColor = Color(0xFFF0F0F0),
+        modifier = Modifier.height(120.dp)
+    ) {
+        NavigationBarItem(
+            selected = telaAtual == "inicio",
+            onClick  = onAbrirInicio,
+            icon = {
+                Image(
+                    painter            = painterResource(R.drawable.icone_remedios),
+                    contentDescription = "Início",
+                    modifier           = Modifier.size(64.dp),
+                    alpha              = if (telaAtual == "inicio") 1f else 0.35f
+                )
+            },
+            label = {
+                Text(
+                    "Início",
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 16.sp,
+                    color      = if (telaAtual == "inicio") Color(0xFF6200EE) else Color.Gray
+                )
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedTextColor   = Color(0xFF6200EE),
+                unselectedTextColor = Color.Gray,
+                indicatorColor      = Color(0xFFE8DDFF)   // bolinha roxa clara sob ícone ativo
+            )
+        )
+        NavigationBarItem(
+            selected = telaAtual == "consultas",
+            onClick  = onAbrirConsultas,
+            icon = {
+                Image(
+                    painter            = painterResource(R.drawable.icone_consulta),
+                    contentDescription = "Consultas",
+                    modifier           = Modifier.size(64.dp),
+                    alpha              = if (telaAtual == "consultas") 1f else 0.35f
+                )
+            },
+            label = {
+                Text(
+                    "Consultas",
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 16.sp,
+                    color      = if (telaAtual == "consultas") Color(0xFF6200EE) else Color.Gray
+                )
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedTextColor   = Color(0xFF6200EE),
+                unselectedTextColor = Color.Gray,
+                indicatorColor      = Color(0xFFE8DDFF)
+            )
+        )
+    }
+}
+
+@Composable
+fun AlertaRemedio(
+    nomeRemedio: String,
+    horario: String,
+    onTomei: () -> Unit,
+    onFechar: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier  = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            shape     = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(8.dp),
+            colors    = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier            = Modifier.padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    IconButton(
+                        onClick  = onFechar,
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Fechar", tint = Color.Gray)
+                    }
+                }
+
+                Text("💊", fontSize = 72.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Surface(color = Color(0xFFFFF3E0), shape = RoundedCornerShape(12.dp)) {
+                    Text(
+                        text       = "Hora do remédio!",
+                        modifier   = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                        fontSize   = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = Color(0xFFBF360C)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(text = nomeRemedio, fontSize = 18.sp, color = Color.DarkGray, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = "🕗 $horario", fontSize = 28.sp, fontWeight = FontWeight.Black, color = Color(0xFF4A148C))
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                Button(
+                    onClick  = onTomei,
+                    modifier = Modifier.fillMaxWidth().height(60.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8F5E9)),
+                    shape    = RoundedCornerShape(12.dp)
+                ) {
+                    Text(text = "✅  Já tomei", fontSize = 20.sp, fontWeight = FontWeight.Black, color = Color(0xFF2E7D32))
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TextButton(onClick = onFechar, modifier = Modifier.fillMaxWidth()) {
+                    Text(text = "Fechar", fontSize = 16.sp, color = Color.Gray)
                 }
             }
         }
@@ -458,22 +637,6 @@ fun CardMedicamentoPrescrito(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun BarraNavegacaoInferior(onAbrirConsultas: () -> Unit) {
-    NavigationBar(containerColor = Color(0xFFF0F0F0), modifier = Modifier.height(120.dp)) {
-        NavigationBarItem(
-            selected = true, onClick = {},
-            icon = { Image(painterResource(R.drawable.icone_remedios), contentDescription = "Início", modifier = Modifier.size(64.dp)) },
-            label = { Text("Início", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
-        )
-        NavigationBarItem(
-            selected = false, onClick = onAbrirConsultas,
-            icon = { Image(painterResource(R.drawable.icone_consulta), contentDescription = "Consultas", modifier = Modifier.size(64.dp)) },
-            label = { Text("Consultas", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
-        )
     }
 }
 
@@ -616,6 +779,10 @@ fun DrawPills(
     }
 }
 
+// =============================================================================
+// ALTERAÇÃO 1: TelaConsultaPaciente agora tem barra de navegação inferior
+// ALTERAÇÃO 3: Data exibida também no formato dd/mm/aaaa
+// =============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TelaConsultaPaciente(
@@ -634,50 +801,170 @@ fun TelaConsultaPaciente(
                     }
                 }
             )
+        },
+        // ALTERAÇÃO 1: barra inferior presente, aba "consultas" ativa,
+        // clicar em "Início" navega de volta para MainScreen
+        bottomBar = {
+            BarraNavegacaoInferior(
+                telaAtual        = "consultas",
+                onAbrirInicio    = onVoltar,
+                onAbrirConsultas = { /* já está nesta tela */ }
+            )
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding).background(Color.White), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(Color.White),
+            contentAlignment = Alignment.Center
+        ) {
             if (consultaAgendada == null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
                     Text("📭", fontSize = 80.sp)
                     Spacer(modifier = Modifier.height(20.dp))
-                    Text("Nenhuma consulta\nagendada ainda", fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.Gray, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                    Text(
+                        "Nenhuma consulta\nagendada ainda",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 36.sp
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Fale com o seu médico\npara marcar uma data.", fontSize = 18.sp, color = Color.LightGray, textAlign = TextAlign.Center, lineHeight = 28.sp)
+                    Text(
+                        "Fale com o seu médico\npara marcar uma data.",
+                        fontSize = 18.sp,
+                        color = Color.LightGray,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 28.sp
+                    )
                 }
             } else {
                 val data    = consultaAgendada!!
                 val hoje    = LocalDate.now()
                 val diasAte = ChronoUnit.DAYS.between(hoje, data).toInt()
-                val nomeDia = data.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
-                val nomeMes = data.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
+                val nomeDia = data.dayOfWeek
+                    .getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
+                    .replaceFirstChar { it.uppercase() }
+                val nomeMes = data.month
+                    .getDisplayName(TextStyle.FULL, Locale("pt", "BR"))
+                    .replaceFirstChar { it.uppercase() }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(28.dp)) {
+                // ALTERAÇÃO 3: formato dd/mm/aaaa
+                val dataFormatada = "%02d/%02d/%04d"
+                    .format(data.dayOfMonth, data.monthValue, data.year)
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(28.dp)
+                ) {
                     Text("🏥", fontSize = 80.sp)
                     Spacer(modifier = Modifier.height(20.dp))
-                    Text("Sua próxima consulta", fontSize = 20.sp, color = Color(0xFF5C6BC0), fontWeight = FontWeight.Bold)
+                    Text(
+                        "Sua próxima consulta",
+                        fontSize = 20.sp,
+                        color = Color(0xFF5C6BC0),
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6)), shape = RoundedCornerShape(24.dp), elevation = CardDefaults.cardElevation(6.dp)) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(nomeDia, fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color(0xFF3949AB))
+
+                    Card(
+                        modifier  = Modifier.fillMaxWidth(),
+                        colors    = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6)),
+                        shape     = RoundedCornerShape(24.dp),
+                        elevation = CardDefaults.cardElevation(6.dp)
+                    ) {
+                        Column(
+                            modifier            = Modifier.fillMaxWidth().padding(28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                nomeDia,
+                                fontSize   = 30.sp,
+                                fontWeight = FontWeight.Black,
+                                color      = Color(0xFF3949AB)
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("${data.dayOfMonth}", fontSize = 88.sp, fontWeight = FontWeight.Black, color = Color(0xFF1A237E), lineHeight = 88.sp)
-                            Text("$nomeMes  ${data.year}", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3949AB))
+                            Text(
+                                "${data.dayOfMonth}",
+                                fontSize   = 88.sp,
+                                fontWeight = FontWeight.Black,
+                                color      = Color(0xFF1A237E),
+                                lineHeight = 88.sp
+                            )
+                            Text(
+                                "$nomeMes  ${data.year}",
+                                fontSize   = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = Color(0xFF3949AB)
+                            )
+
+                            // ALTERAÇÃO 3: badge com dd/mm/aaaa
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                color = Color(0xFFD1D5F0),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text          = dataFormatada,
+                                    modifier      = Modifier.padding(horizontal = 18.dp, vertical = 7.dp),
+                                    fontSize      = 20.sp,
+                                    fontWeight    = FontWeight.Bold,
+                                    color         = Color(0xFF1A237E),
+                                    letterSpacing = 2.sp
+                                )
+                            }
                         }
                     }
+
                     Spacer(modifier = Modifier.height(24.dp))
+
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = when { diasAte < 0 -> Color(0xFFFFEBEE); diasAte <= 3 -> Color(0xFFFFF3E0); else -> Color(0xFFE8F5E9) }),
+                        colors   = CardDefaults.cardColors(
+                            containerColor = when {
+                                diasAte < 0  -> Color(0xFFFFEBEE)
+                                diasAte <= 3 -> Color(0xFFFFF3E0)
+                                else         -> Color(0xFFE8F5E9)
+                            }
+                        ),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                            Text(when { diasAte < 0 -> "⚠️"; diasAte == 0 -> "🔔"; diasAte <= 3 -> "⏰"; else -> "✅" }, fontSize = 36.sp)
+                        Row(
+                            modifier            = Modifier.fillMaxWidth().padding(20.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment   = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                when {
+                                    diasAte < 0  -> "⚠️"
+                                    diasAte == 0 -> "🔔"
+                                    diasAte <= 3 -> "⏰"
+                                    else         -> "✅"
+                                },
+                                fontSize = 36.sp
+                            )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                when { diasAte < 0 -> "Consulta já passou"; diasAte == 0 -> "É HOJE!"; diasAte == 1 -> "Falta 1 dia"; else -> "Faltam $diasAte dias" },
-                                fontSize = 26.sp, fontWeight = FontWeight.Black,
-                                color = when { diasAte <= 0 -> Color(0xFFC62828); diasAte <= 3 -> Color(0xFFE65100); else -> Color(0xFF2E7D32) }
+                                when {
+                                    diasAte < 0  -> "Consulta já passou"
+                                    diasAte == 0 -> "É HOJE!"
+                                    diasAte == 1 -> "Falta 1 dia"
+                                    else         -> "Faltam $diasAte dias"
+                                },
+                                fontSize   = 26.sp,
+                                fontWeight = FontWeight.Black,
+                                color      = when {
+                                    diasAte <= 0 -> Color(0xFFC62828)
+                                    diasAte <= 3 -> Color(0xFFE65100)
+                                    else         -> Color(0xFF2E7D32)
+                                }
                             )
                         }
                     }
@@ -686,8 +973,6 @@ fun TelaConsultaPaciente(
         }
     }
 }
-
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -717,8 +1002,8 @@ fun TelaAgendarConsulta(
         topBar = {
             CenterAlignedTopAppBar(
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor         = CorFundoEscuro,
-                    titleContentColor      = CorTextoPrimario,
+                    containerColor             = CorFundoEscuro,
+                    titleContentColor          = CorTextoPrimario,
                     navigationIconContentColor = CorTextoPrimario
                 ),
                 title = { Text("AGENDAR CONSULTA", fontWeight = FontWeight.Black) },
@@ -733,7 +1018,10 @@ fun TelaAgendarConsulta(
 
         if (confirmado) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding).background(CorFundoEscuro),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(CorFundoEscuro),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
@@ -853,6 +1141,71 @@ fun TelaAgendarConsulta(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+fun CardOfensiva(streak: Int, tomadoHoje: Boolean) {
+    var animar by remember { mutableStateOf(false) }
+
+    LaunchedEffect(tomadoHoje) {
+        if (tomadoHoje) { animar = true; delay(1000); animar = false }
+    }
+
+    val escala by animateFloatAsState(targetValue = if (animar) 1.06f else 1f, animationSpec = tween(400), label = "escala")
+    val corFundoInicio by animateColorAsState(targetValue = if (tomadoHoje) Color(0xFFFFF8F2) else Color(0xFFFAFAFA), animationSpec = tween(500), label = "corInicio")
+    val corFundoFim    by animateColorAsState(targetValue = if (tomadoHoje) Color(0xFFFFE0B2) else Color(0xFFF5F5F5), animationSpec = tween(500), label = "corFim")
+
+    val mensagemMotivacao = when {
+        streak == 0 -> "💊 Comece sua jornada de saúde hoje!"
+        streak < 3  -> "🔥 Bom começo! Mantenha o ritmo!"
+        streak < 7  -> "💪 Você está construindo um hábito excelente!"
+        streak < 14 -> "⭐ Incrível! Seu corpo agradece a constância."
+        else        -> "🏆 Lendário! Você é imparável!"
+    }
+
+    val corTextoPrincipal = Color(0xFFE65100)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .graphicsLayer { scaleX = escala; scaleY = escala }
+            .border(
+                width = 1.5.dp,
+                brush = Brush.horizontalGradient(colors = if (tomadoHoje) listOf(Color(0xFFFFB74D), Color(0xFFFF9800)) else listOf(Color.Transparent, Color.Transparent)),
+                shape = RoundedCornerShape(24.dp)
+            ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (tomadoHoje) 4.dp else 1.dp),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.background(Brush.verticalGradient(listOf(corFundoInicio, corFundoFim))).padding(24.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("OFENSIVA ATUAL", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (tomadoHoje) Color(0xFFF57C00) else Color.Gray, letterSpacing = 1.5.sp)
+                    Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 4.dp)) {
+                        Text("$streak", fontSize = 42.sp, fontWeight = FontWeight.Black, color = corTextoPrincipal, lineHeight = 42.sp)
+                        Text(if (streak == 1) " dia" else " dias", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = corTextoPrincipal.copy(alpha = 0.8f), modifier = Modifier.padding(bottom = 6.dp, start = 4.dp))
+                    }
+                }
+                Box(modifier = Modifier.size(64.dp).background(color = if (tomadoHoje) Color(0xFFFFE0B2) else Color(0xFFE0E0E0), shape = RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
+                    Text(if (tomadoHoje) "🔥" else "💤", fontSize = 32.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = if (tomadoHoje) Color(0xFFFFCC80).copy(alpha = 0.5f) else Color(0xFFE0E0E0), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(mensagemMotivacao, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color(0xFF424242), textAlign = TextAlign.Start)
+            if (tomadoHoje) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("✨", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
+                        Text("Tudo pronto por hoje! Meta batida.", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF2E7D32))
+                    }
+                }
+            }
         }
     }
 }
