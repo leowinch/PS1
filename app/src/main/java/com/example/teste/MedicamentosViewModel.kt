@@ -12,6 +12,8 @@ import kotlinx.datetime.LocalTime
 import java.time.LocalDate
 import java.util.Calendar
 import java.time.temporal.ChronoUnit
+import android.content.Context 
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UTILITÁRIOS DE DATA
@@ -56,7 +58,22 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
     // DataStore (persistência leve — streak, record, consulta)
     private val dataStore  = app.dataStore
 
-    // ── OFENSIVA — lidos do DataStore ──────────────────────────────────────
+
+    private val prefs = getApplication<Application>()
+      .getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+
+    fun deveExibirResumoDiario(): Boolean {
+       val ultimaData = prefs.getString("ultima_abertura_resumo", null)
+       return ultimaData != LocalDate.now().toString()
+    }
+
+    fun registrarAberturaHoje() {
+        prefs.edit().putString("ultima_abertura_resumo", LocalDate.now().toString()).apply()
+    }
+
+
+
+        // ── OFENSIVA — lidos do DataStore ──────────────────────────────────────
 
     val streakDias: StateFlow<Int> = dataStore.data
         .map { it[AppPrefsKeys.STREAK] ?: 0 }

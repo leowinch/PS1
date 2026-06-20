@@ -47,6 +47,15 @@ import java.time.temporal.ChronoUnit
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.delay
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.draw.clip
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,6 +76,22 @@ fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
     var mostrarDialogSenha by remember { mutableStateOf(false) }
     var destinoAposSenha by remember { mutableStateOf("") }
 
+    // NOVO
+    var mostrarResumoDiario by remember { mutableStateOf(false) }
+
+    val listaRemedios by vm.medicamentosPrescritos.collectAsState()
+    val listaHorarios by vm.horariosPrescritos.collectAsState()
+
+    LaunchedEffect(listaRemedios) {
+        if (
+            listaRemedios.isNotEmpty() &&
+            vm.deveExibirResumoDiario()
+        ) {
+            mostrarResumoDiario = true
+            vm.registrarAberturaHoje()
+        }
+    }
+
     fun navegarComSenha(destino: String) {
         destinoAposSenha = destino
         mostrarDialogSenha = true
@@ -76,21 +101,24 @@ fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
 
         when (telaAtual) {
             "paciente" -> MainScreen(
-                vm                = vm,
+                vm = vm,
                 onAbrirAreaMedico = { navegarComSenha("medico") },
-                onAbrirConsultas  = { telaAtual = "consultas" },
+                onAbrirConsultas = { telaAtual = "consultas" },
                 onAgendarConsulta = { navegarComSenha("agendar") }
             )
-            "medico"   -> TelaDoMedico(
-                vm       = vm,
+
+            "medico" -> TelaDoMedico(
+                vm = vm,
                 onVoltar = { telaAtual = "paciente" }
             )
+
             "consultas" -> TelaConsultaPaciente(
-                vm            = vm,
-                onVoltar      = { telaAtual = "paciente" }
+                vm = vm,
+                onVoltar = { telaAtual = "paciente" }
             )
-            "agendar"  -> TelaAgendarConsulta(
-                vm       = vm,
+
+            "agendar" -> TelaAgendarConsulta(
+                vm = vm,
                 onVoltar = { telaAtual = "paciente" }
             )
         }
@@ -103,6 +131,17 @@ fun AppNavegacao(vm: MedicamentosViewModel = viewModel()) {
                 },
                 onFechar = {
                     mostrarDialogSenha = false
+                }
+            )
+        }
+
+        // NOVO POPUP DE RESUMO
+        if (mostrarResumoDiario) {
+            DialogResumoMedicamentos(
+                medicamentos = listaRemedios,
+                horarios = listaHorarios,
+                onFechar = {
+                    mostrarResumoDiario = false
                 }
             )
         }
@@ -1209,3 +1248,287 @@ fun CardOfensiva(streak: Int, tomadoHoje: Boolean) {
         }
     }
 }
+
+@Composable
+fun DialogResumoMedicamentos(
+    medicamentos: List<MedicamentoPrescrito>,
+    horarios: List<HorarioPrescrito>,
+    onFechar: () -> Unit
+) {
+    // Agrupa horários por turno para exibição organizada
+    val turnos = listOf("Manhã", "Tarde", "Noite")
+    val gruposPorTurno = turnos.mapNotNull { turno ->
+        val horariosDoTurno = horarios.filter { it.turno == turno }
+        if (horariosDoTurno.isEmpty()) null
+        else turno to horariosDoTurno
+    }
+
+    // Total de doses no dia
+    val totalDoses = horarios.size
+
+    // Paleta do pop-up (tons frios/saúde, consistente com o tema do app)
+    val corFundo       = Color(0xFF1A1A2E)   // azul-noite profundo
+    val corSuperficie  = Color(0xFF16213E)   // azul-marinho escuro
+    val corDestaque    = Color(0xFF7C83FD)   // lilás vibrante
+    val corTexto       = Color(0xFFE8E8F0)
+    val corTextoMuted  = Color(0xFF8888AA)
+
+    val corTurno = mapOf(
+        "Manhã" to Color(0xFFFFB347),        // âmbar solar
+        "Tarde" to Color(0xFF56C596),         // verde-água
+        "Noite" to Color(0xFF7C83FD)          // lilás
+    )
+    val emojTurno = mapOf(
+        "Manhã" to "🌅",
+        "Tarde" to "☀️",
+        "Noite" to "🌙"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.72f)),
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(tween(260)) + scaleIn(
+                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                initialScale = 0.88f
+            ),
+            exit = fadeOut(tween(180)) + scaleOut(tween(180), targetScale = 0.92f)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .heightIn(max = 560.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = corFundo),
+                elevation = CardDefaults.cardElevation(24.dp)
+            ) {
+                Column {
+
+                    // ── Cabeçalho ──────────────────────────────────────────
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(corSuperficie)
+                            .padding(start = 24.dp, end = 8.dp, top = 20.dp, bottom = 20.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(end = 40.dp)) {
+                            Text(
+                                text = "Bom dia! 👋",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = corTextoMuted,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Seus remédios de hoje",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                color = corTexto
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // Badge com total de doses
+                            Surface(
+                                color = corDestaque.copy(alpha = 0.18f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = if (totalDoses == 1) "1 dose programada" else "$totalDoses doses programadas",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = corDestaque
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onFechar,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(40.dp)
+                                .background(Color.White.copy(alpha = 0.07f), CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Fechar",
+                                tint = corTextoMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // ── Lista de remédios por turno ─────────────────────────
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .padding(horizontal = 20.dp),
+                        contentPadding = PaddingValues(vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        gruposPorTurno.forEach { (turno, horariosDoTurno) ->
+                            item(key = "header_$turno") {
+                                // Cabeçalho do turno
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                ) {
+                                    Text(
+                                        text = emojTurno[turno] ?: "",
+                                        fontSize = 16.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = turno.uppercase(),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = corTurno[turno] ?: corDestaque,
+                                        letterSpacing = 1.5.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    HorizontalDivider(
+                                        modifier = Modifier.weight(1f),
+                                        color = (corTurno[turno] ?: corDestaque).copy(alpha = 0.25f),
+                                        thickness = 1.dp
+                                    )
+                                }
+                            }
+
+                            itemsIndexed(
+                                items = horariosDoTurno,
+                                key = { _, h -> h.id }
+                            ) { _, horario ->
+                                val med = medicamentos.find { it.id == horario.medicamentoId }
+                                if (med != null) {
+                                    CardResumoRemedio(
+                                        medicamento    = med,
+                                        horario        = horario,
+                                        corTurno       = corTurno[turno] ?: corDestaque,
+                                        corSuperficie  = corSuperficie,
+                                        corTexto       = corTexto,
+                                        corTextoMuted  = corTextoMuted
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Rodapé ─────────────────────────────────────────────
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(corSuperficie)
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Button(
+                            onClick = onFechar,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = corDestaque),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(
+                                text = "Entendido, vamos lá! 💪",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Este aviso aparece uma vez por dia",
+                            fontSize = 12.sp,
+                            color = corTextoMuted,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun CardResumoRemedio(
+    medicamento:   MedicamentoPrescrito,
+    horario:       HorarioPrescrito,
+    corTurno:      Color,
+    corSuperficie: Color,
+    corTexto:      Color,
+    corTextoMuted: Color
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors   = CardDefaults.cardColors(containerColor = corSuperficie),
+        shape    = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Barra colorida lateral + horário
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(corTurno)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Nome e detalhes do medicamento
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text       = medicamento.nome,
+                    fontSize   = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    color      = corTexto,
+                    maxLines   = 1
+                )
+                Text(
+                    text     = medicamento.concentracao,
+                    fontSize = 14.sp,
+                    color    = corTextoMuted
+                )
+                Text(
+                    text     = "${horario.qtde}x ${medicamento.forma}",
+                    fontSize = 12.sp,
+                    color    = corTextoMuted.copy(alpha = 0.7f)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Chip do horário
+            Surface(
+                color = corTurno.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    text       = horario.horario,
+                    modifier   = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    fontSize   = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    color      = corTurno
+                )
+            }
+        }
+    }
+}
+
+
