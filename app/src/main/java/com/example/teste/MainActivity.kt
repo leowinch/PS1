@@ -645,7 +645,7 @@ fun CardMedicamentoPrescrito(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            DrawPills(horarioInfo.qtde)
+            DrawPills(horarioInfo.qtde, remedio.imgRemedio)
 
             Spacer(modifier = Modifier.height(16.dp))
             Button(
@@ -786,25 +786,40 @@ fun DrawerLateral(
 @Composable
 fun DrawPills(
     qtde: Int,
+    imgRemedio: String,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (qtde <= 8) {
+
+        val drawable = TipoRemedio.fromId(imgRemedio).drawable
+        val isPomada = imgRemedio == "pomada"
+
+        if (isPomada) {
+            Image(
+                painter = painterResource(drawable),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(30.dp)
+                    .padding(end = 4.dp)
+            )
+        }
+        else if (qtde <= 8) {
             repeat(qtde) {
                 Image(
-                    painter = painterResource(R.drawable.white_pill),
+                    painter = painterResource(drawable),
                     contentDescription = null,
                     modifier = Modifier
                         .size(30.dp)
                         .padding(end = 4.dp)
                 )
             }
-        } else {
+        }
+        else {
             Image(
-                painter = painterResource(R.drawable.white_pill),
+                painter = painterResource(drawable),
                 contentDescription = null,
                 modifier = Modifier.size(30.dp)
             )

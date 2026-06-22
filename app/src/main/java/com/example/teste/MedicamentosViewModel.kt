@@ -12,7 +12,8 @@ import kotlinx.datetime.LocalTime
 import java.time.LocalDate
 import java.util.Calendar
 import java.time.temporal.ChronoUnit
-import android.content.Context 
+import android.content.Context
+import android.util.Log
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -482,9 +483,11 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
                     prefs[AppPrefsKeys.TOMADO_HOJE] = false
                 }
 
+
                 onConcluido()
             } finally {
                 _salvando.value = false
+
             }
         }
     }
