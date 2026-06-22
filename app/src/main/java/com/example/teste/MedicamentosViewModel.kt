@@ -427,6 +427,14 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun atualizarTipoRemedio(id: Int, tipo: String) {
+        _medicamentosSupabase.value = _medicamentosSupabase.value.map {
+            if (it.medicamento.id == id) {
+                it.copy(imgRemedio = tipo)
+            } else it
+        }
+    }
+
     fun salvarPrescricao(onConcluido: () -> Unit) {
         viewModelScope.launch {
             _salvando.value = true
@@ -447,7 +455,8 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
                             concentracao   = ui.medicamento.concentracao,
                             forma          = ui.medicamento.forma,
                             diasTratamento = ui.diasTratamento,
-                            dataInicio     = inicioTratamento
+                            dataInicio     = inicioTratamento,
+                            imgRemedio = ui.imgRemedio
                         )
                     )
                     ui.horarios.forEach { h ->

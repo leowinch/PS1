@@ -42,6 +42,7 @@ data class MedicamentoPrescrito(
     val forma: String,
     val diasTratamento: Int,        // quantos dias o paciente vai tomar
     val dataInicio: Long,            // timestamp do dia seguinte à prescrição (meia-noite)
+    val imgRemedio: String
 )
 
 // -------------------------------------------------------
@@ -70,7 +71,8 @@ data class MedicamentoUiState(
     val selecionado: Boolean = false,
     val horarios: List<HorarioUiState> = listOf(HorarioUiState()),
     val diasTratamento: Int = 7,
-    val qtde: Int = 4
+    val qtde: Int = 4,
+    val imgRemedio: String = TipoRemedio.BRANCO_REDONDO.id
 )
 
 // -------------------------------------------------------

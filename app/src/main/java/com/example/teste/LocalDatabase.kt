@@ -83,7 +83,7 @@ interface DoseDao {
 // -------------------------------------------------------
 @Database(
     entities = [MedicamentoPrescrito::class, HorarioPrescrito::class, DoseTomada::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
