@@ -11,6 +11,9 @@ enum class TipoRemedio(
     AZUL_REDONDO("azul_redondo", R.drawable.blue_pill),
     AMARELO_REDONDO("amarelo_redondo", R.drawable.yellow_pill),
     POMADA("pomada", R.drawable.pomada),
+    INJETAVEL("injetavel", R.drawable.injetavel),
+    OLHO("ocular", R.drawable.ocular),
+    NASAL("nasal", R.drawable.nasal),
     GOTA("gota", R.drawable.drop_white);
 
     companion object {

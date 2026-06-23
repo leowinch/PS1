@@ -796,8 +796,11 @@ fun DrawPills(
 
         val drawable = TipoRemedio.fromId(imgRemedio).drawable
         val isPomada = imgRemedio == "pomada"
+        val isInjetavel = imgRemedio == "injetavel"
+        val isNasal = imgRemedio == "nasal"
+        val isOcular = imgRemedio == "ocular"
 
-        if (isPomada) {
+        if (isPomada || isOcular || isInjetavel || isNasal) {
             Image(
                 painter = painterResource(drawable),
                 contentDescription = null,
