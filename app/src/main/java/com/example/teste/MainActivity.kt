@@ -57,6 +57,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.draw.clip
 
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -644,7 +645,7 @@ fun CardMedicamentoPrescrito(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            DrawPills(horarioInfo.qtde)
+            DrawPills(horarioInfo.qtde, remedio.imgRemedio)
 
             Spacer(modifier = Modifier.height(16.dp))
             Button(
@@ -785,25 +786,43 @@ fun DrawerLateral(
 @Composable
 fun DrawPills(
     qtde: Int,
+    imgRemedio: String,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (qtde <= 8) {
+
+        val drawable = TipoRemedio.fromId(imgRemedio).drawable
+        val isPomada = imgRemedio == "pomada"
+        val isInjetavel = imgRemedio == "injetavel"
+        val isNasal = imgRemedio == "nasal"
+        val isOcular = imgRemedio == "ocular"
+
+        if (isPomada || isOcular || isInjetavel || isNasal) {
+            Image(
+                painter = painterResource(drawable),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(30.dp)
+                    .padding(end = 4.dp)
+            )
+        }
+        else if (qtde <= 8) {
             repeat(qtde) {
                 Image(
-                    painter = painterResource(R.drawable.white_pill),
+                    painter = painterResource(drawable),
                     contentDescription = null,
                     modifier = Modifier
                         .size(30.dp)
                         .padding(end = 4.dp)
                 )
             }
-        } else {
+        }
+        else {
             Image(
-                painter = painterResource(R.drawable.white_pill),
+                painter = painterResource(drawable),
                 contentDescription = null,
                 modifier = Modifier.size(30.dp)
             )
@@ -1159,7 +1178,8 @@ fun TelaAgendarConsulta(
                     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("📅 Data selecionada:", fontSize = 14.sp, color = CorTextoSecundario)
                         diaSelecionado?.let { data ->
-                            val nomeDia    = data.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
+                            val nomeDia    = data.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL,
+                                Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
                             val nomeMesDia = data.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }
                             Text("$nomeDia, ${data.dayOfMonth} de $nomeMesDia", fontSize = 18.sp, fontWeight = FontWeight.Black, color = CorPrimaria, textAlign = TextAlign.Center)
                         }

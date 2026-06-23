@@ -12,7 +12,8 @@ import kotlinx.datetime.LocalTime
 import java.time.LocalDate
 import java.util.Calendar
 import java.time.temporal.ChronoUnit
-import android.content.Context 
+import android.content.Context
+import android.util.Log
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -427,6 +428,14 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun atualizarTipoRemedio(id: Int, tipo: String) {
+        _medicamentosSupabase.value = _medicamentosSupabase.value.map {
+            if (it.medicamento.id == id) {
+                it.copy(imgRemedio = tipo)
+            } else it
+        }
+    }
+
     fun salvarPrescricao(onConcluido: () -> Unit) {
         viewModelScope.launch {
             _salvando.value = true
@@ -447,7 +456,8 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
                             concentracao   = ui.medicamento.concentracao,
                             forma          = ui.medicamento.forma,
                             diasTratamento = ui.diasTratamento,
-                            dataInicio     = inicioTratamento
+                            dataInicio     = inicioTratamento,
+                            imgRemedio = ui.imgRemedio
                         )
                     )
                     ui.horarios.forEach { h ->
@@ -473,9 +483,11 @@ class MedicamentosViewModel(app: Application) : AndroidViewModel(app) {
                     prefs[AppPrefsKeys.TOMADO_HOJE] = false
                 }
 
+
                 onConcluido()
             } finally {
                 _salvando.value = false
+
             }
         }
     }

@@ -21,12 +21,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.Normalizer
+import androidx.compose.foundation.Image
 
 fun normalizarTexto(texto: String): String {
     val semAcento = Normalizer.normalize(texto, Normalizer.Form.NFD)
@@ -124,7 +126,8 @@ fun TelaDoMedico(
                                             concentracao = ui.medicamento.concentracao,
                                             forma = ui.medicamento.forma,
                                             diasTratamento = ui.diasTratamento,
-                                            dataInicio = System.currentTimeMillis()
+                                            dataInicio = System.currentTimeMillis(),
+                                            imgRemedio = ui.imgRemedio
                                         ),
                                         horarios = ui.horarios.map { h ->
                                             HorarioPrescrito(
@@ -256,7 +259,8 @@ fun TelaDoMedico(
                                 onHorarioChange = { idx, h -> vm.atualizarHorario(uiState.medicamento.id, idx, h) },
                                 onTurnoChange = { idx, t -> vm.atualizarTurno(uiState.medicamento.id, idx, t) },
                                 onDiasChange = { vm.atualizarDias(uiState.medicamento.id, it) },
-                                onQtdeChange = { idx, qtde -> vm.atualizarQtdeHorario(uiState.medicamento.id, idx, qtde)}
+                                onQtdeChange = { idx, qtde -> vm.atualizarQtdeHorario(uiState.medicamento.id, idx, qtde)},
+                                onTipoRemedioChange = { novoTipo -> vm.atualizarTipoRemedio(uiState.medicamento.id, novoTipo)}
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                         }
@@ -278,7 +282,8 @@ fun CardMedicamentoSelecao(
     onHorarioChange: (Int, String) -> Unit,
     onTurnoChange: (Int, String) -> Unit,
     onDiasChange: (Int) -> Unit,
-    onQtdeChange: (Int, Int) -> Unit
+    onQtdeChange: (Int, Int) -> Unit,
+    onTipoRemedioChange: (String) -> Unit
 ) {
     val med = uiState.medicamento
     val selecionado = uiState.selecionado
@@ -350,6 +355,54 @@ fun CardMedicamentoSelecao(
                         }
                     }
                 )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Tipo de comprimido",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                var expanded by remember { mutableStateOf(false) }
+
+                val tipoAtual = TipoRemedio.fromId(uiState.imgRemedio)
+
+                Box {
+                    OutlinedButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(tipoAtual.name.lowercase().replace("_", " "))
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        TipoRemedio.entries.forEach { tipo ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Image(
+                                            painter = painterResource(id = tipo.drawable),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(tipo.name.lowercase().replace("_", " "))
+                                    }
+                                },
+                                onClick = {
+                                    onTipoRemedioChange(tipo.id)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 

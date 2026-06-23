@@ -1,10 +1,12 @@
 package com.example.teste
 
 import android.content.Context
+import android.os.Build
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.annotation.RequiresApi
 import java.util.Calendar
 
 object AgendaGenerator {
@@ -28,6 +30,7 @@ object AgendaGenerator {
     }
 
     // Agrupa uma lista de dias em semanas (cada semana começa no Domingo)
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     private fun agruparEmSemanas(dias: List<Calendar>): List<List<Calendar?>> {
         if (dias.isEmpty()) return emptyList()
 
@@ -68,6 +71,7 @@ object AgendaGenerator {
         return semanas
     }
 
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     fun gerarHtml(medicamentosComHorarios: List<MedicamentoComHorarios>): String {
         val corpo = StringBuilder()
 
@@ -295,6 +299,7 @@ object AgendaGenerator {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 fun imprimirAgenda(context: Context, lista: List<MedicamentoComHorarios>) {
     val webView = WebView(context)
     val html = AgendaGenerator.gerarHtml(lista)
