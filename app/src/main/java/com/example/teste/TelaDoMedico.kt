@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.Normalizer
+import androidx.compose.foundation.Image
 
 fun normalizarTexto(texto: String): String {
     val semAcento = Normalizer.normalize(texto, Normalizer.Form.NFD)
@@ -385,7 +386,7 @@ fun CardMedicamentoSelecao(
                             DropdownMenuItem(
                                 text = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
+                                        Image(
                                             painter = painterResource(id = tipo.drawable),
                                             contentDescription = null,
                                             modifier = Modifier.size(24.dp)
